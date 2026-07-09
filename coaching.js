@@ -23,7 +23,11 @@ function addUser(text) { add(`<div class="row user"><div class="bub">${text}</di
 async function callMaia(context) {
   const t = add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>');
   let reply = "Schön gesagt. 💛";
-  try { const r = await fetch("/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, system: COACHING_SYSTEM, context }) }); reply = (await r.json()).reply; } catch {}
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch("/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, system: COACHING_SYSTEM, context }), signal: ctl.signal });
+    clearTimeout(to); reply = (await r.json()).reply || reply;
+  } catch {}
   t.remove(); add(`<div class="row"><div class="mava"></div><div class="bub">${reply}</div></div>`); await sleep(250);
 }
 
@@ -209,7 +213,7 @@ async function play() {
   document.getElementById("stars").textContent = "480";
   badge("Werde dein Lehrer ✓", "Coaching-Unit 1 · +40 Sterne");
   await sleep(300);
-  dock.innerHTML = `<button class="cta" onclick="location.href='/'">Zurück zum Lernen</button>`;
+  dock.innerHTML = `<button class="cta" onclick="location.href='./'">Zurück zum Lernen</button>`;
 }
 
 play();
