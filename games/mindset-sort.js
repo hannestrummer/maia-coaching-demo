@@ -44,7 +44,7 @@
 
       /* ---- lokaler Style, gescopt via [data-ms] ------------------------- */
       var CSS = "" +
-      "[data-ms]{position:absolute;inset:0;display:flex;flex-direction:column;" +
+      "[data-ms]{position:relative;width:100%;height:360px;display:flex;flex-direction:column;" +
         "font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);" +
         "background:var(--white,#fff);border-radius:16px;overflow:hidden}" +
       "[data-ms] *{box-sizing:border-box}" +
