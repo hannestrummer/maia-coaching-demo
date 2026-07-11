@@ -12,6 +12,10 @@ const PHOTO = window.MAIA_PHOTO || "";    // Mentors-Check Beispielfoto (R2)
 
 const MAIA_SYSTEM = `Du bist Maia, die KI-Mentorin der Hairdressing.school. Sprich Deutsch, warm und ermutigend, wie eine gute Freundin, die textet: 1-2 kurze Sätze, höchstens 1-2 Emojis. Die Lernende heißt ${NAME}. Kurs "Basic Cut I", Lektion "Abenteuer 7": am Papier üben, Mentor imitieren, Haare schneiden, Ziel = einmal gerade um den Kopf (Außenlinie). Antworte NUR mit Maias Nachricht.`;
 
+const MAIA_API = window.MAIA_API || "";
+const SESSION = (()=>{try{let s=localStorage.getItem("maiaSession"); if(!s){s=(self.crypto&&crypto.randomUUID?crypto.randomUUID():(Date.now()+"-"+Math.random().toString(16).slice(2))); localStorage.setItem("maiaSession",s);} return s;}catch(e){return "sess-"+Date.now();}})();
+function logTurn(role,text){ if(!MAIA_API||!text) return; try{ fetch(MAIA_API+"/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:SESSION,role,text,adventure:"abenteuer-7"}),keepalive:true}).catch(()=>{});}catch(e){} }
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const scroll = () => { stream.scrollTop = stream.scrollHeight; setTimeout(() => { stream.scrollTop = stream.scrollHeight; }, 30); };
 function add(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); const n = d.firstChild; stream.appendChild(n); scroll(); return n; }
@@ -22,18 +26,19 @@ async function typeMaia(text) {
   const t = add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>');
   await sleep(Math.min(420 + text.length * 10, 1400)); t.remove();
   add(`<div class="row"><div class="mava"></div><div class="bub">${text}</div></div>`);
+  logTurn("maia", text);
   await sleep(190);
 }
-function addUser(text) { add(`<div class="row user"><div class="bub">${text}</div></div>`); }
+function addUser(text) { add(`<div class="row user"><div class="bub">${text}</div></div>`); logTurn("user", text); }
 async function callMaia(context) {
   const t = add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>');
   let reply = "Das nehme ich mit — schön, dass du drangeblieben bist. 💛";
   try {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 2500);
-    const r = await fetch("/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, system: MAIA_SYSTEM, context }), signal: ctl.signal });
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch((MAIA_API || "") + "/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, system: MAIA_SYSTEM, context, session: SESSION }), signal: ctl.signal });
     clearTimeout(to); reply = (await r.json()).reply || reply;
   } catch {}
-  t.remove(); add(`<div class="row"><div class="mava"></div><div class="bub">${reply}</div></div>`); await sleep(190);
+  t.remove(); add(`<div class="row"><div class="mava"></div><div class="bub">${reply}</div></div>`); logTurn("maia", reply); await sleep(190);
 }
 
 function gateChips(options) {
@@ -104,7 +109,7 @@ async function play() {
   if (gAtem) await playGame(gAtem);
   await typeMaia(`Kurze Frage: Wie merkst du dir etwas am leichtesten — und wie muss dir eine Info gezeigt werden, damit sie hängen bleibt?`);
   const learn = await gateText("Wie du am besten lernst …");
-  await typeMaia(`Schön — genau darauf achten wir. All deine Sinne spielen beim Lernen mit. 🌱`);
+  await callMaia(`${NAME} beantwortet die Frage, wie sie sich etwas am leichtesten merkt und wie ihr etwas gezeigt werden muss, mit: "${learn}". Antworte warm in 1-2 Sätzen, würdige ihre Antwort konkret und verbinde sie mit dem Gedanken, dass alle Sinne beim Lernen mitspielen.`);
   await gateWeiter("Weiter");
 
   // 3) SCHNEIDE PAPIER — 4 echte Videos + Schneide-Spiel
