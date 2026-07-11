@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Feiere deine Ergebnisse</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- body -->
+  <path d="M110 220 Q110 128 160 118 Q210 128 210 220 Z" fill="#C3EBD8"/>
+  <!-- arms raised in celebration -->
+  <path d="M126 150 Q108 118 96 96" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="94" cy="94" r="8" fill="#C3EBD8"/>
+  <path d="M194 150 Q212 118 224 96" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="226" cy="94" r="8" fill="#C3EBD8"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(93.44 15.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 166c17-10 37-7 52 5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M184 196c-11-15-32-12-39 5-7 15 2 30 18 41l20 14 20-14c16-11 24-26 18-41-7-17-28-20-39-5l-9 12-9-12z" fill="#1f1f22"/>
+    <path d="M330 196c-11-15-32-12-39 5-7 15 2 30 18 41l20 14 20-14c16-11 24-26 18-41-7-17-28-20-39-5l-9 12-9-12z" fill="#1f1f22"/>
+    <path d="M200 309c34 20 78 20 112 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+  <!-- confetti (mint / rose) -->
+  <rect x="66" y="40" width="9" height="9" rx="1.5" fill="#c4566f" transform="rotate(25 70.5 44.5)"/>
+  <circle cx="108" cy="30" r="5" fill="#44885f"/>
+  <rect x="146" y="24" width="8" height="8" rx="1.5" fill="#C3EBD8" transform="rotate(-18 150 28)"/>
+  <circle cx="198" cy="32" r="5" fill="#c4566f"/>
+  <rect x="240" y="42" width="9" height="9" rx="1.5" fill="#44885f" transform="rotate(32 244.5 46.5)"/>
+  <circle cx="280" cy="58" r="4" fill="#c4566f"/>
+  <rect x="122" y="64" width="7" height="7" rx="1.5" fill="#C3EBD8" transform="rotate(40 125.5 67.5)"/>
+  <circle cx="64" cy="78" r="4" fill="#c4566f"/>
+  <circle cx="250" cy="82" r="4" fill="#C3EBD8"/>
+</svg>

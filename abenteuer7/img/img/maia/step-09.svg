@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Tagebuch deiner Stärken</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- body -->
+  <path d="M98 220 Q98 128 148 118 Q198 128 198 220 Z" fill="#C3EBD8"/>
+  <!-- arms -->
+  <path d="M110 152 Q104 180 118 186" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <path d="M188 152 Q186 150 183 148" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(81.44 15.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 166c17-10 37-7 52 5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <circle cx="190" cy="223" r="13" fill="#1f1f22"/>
+    <circle cx="322" cy="223" r="13" fill="#1f1f22"/>
+    <path d="M226 311c18 11 42 11 60 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+  <!-- open journal -->
+  <path d="M90 202 Q148 214 206 202 L204 200 Q148 210 92 200 Z" fill="#c4566f"/>
+  <path d="M92 200 L100 172 L148 178 L148 202 Z" fill="#fdf0f3" stroke="#f6d3db" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M204 200 L196 172 L148 178 L148 202 Z" fill="#fdf0f3" stroke="#f6d3db" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M108 184 L140 186" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <path d="M107 190 L140 192" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <path d="M156 186 L188 184" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <path d="M156 192 L189 190" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="118" cy="186" r="7" fill="#C3EBD8"/>
+  <!-- pen writing on the right page -->
+  <path d="M182 148 L166 182" stroke="#c4566f" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="165" cy="184" r="2.5" fill="#15181b"/>
+  <circle cx="183" cy="148" r="7" fill="#C3EBD8"/>
+</svg>

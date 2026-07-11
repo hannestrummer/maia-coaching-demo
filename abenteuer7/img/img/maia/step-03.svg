@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Schneide Papier</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- body -->
+  <path d="M110 220 Q110 128 160 118 Q210 128 210 220 Z" fill="#C3EBD8"/>
+  <!-- arms -->
+  <path d="M122 152 Q128 150 136 151" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <path d="M200 152 Q200 151 198 151" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(93.44 15.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 166c17-10 37-7 52 5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <circle cx="190" cy="221" r="19" fill="#1f1f22"/>
+    <circle cx="322" cy="221" r="19" fill="#1f1f22"/>
+    <path d="M238 313c7 5 25 5 36 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+  <!-- A4 paper held in left hand -->
+  <rect x="96" y="120" width="44" height="64" rx="3" fill="#fdf0f3" stroke="#f6d3db" stroke-width="2"/>
+  <path d="M104 135 L132 135" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <path d="M104 148 L132 148" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <path d="M104 161 L128 161" stroke="#f6d3db" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="135" cy="151" r="8" fill="#C3EBD8"/>
+  <!-- scissors held in right hand -->
+  <circle cx="198" cy="151" r="7" fill="#C3EBD8"/>
+  <circle cx="198" cy="150" r="2" fill="#15181b"/>
+  <path d="M198 150 L217 136" stroke="#15181b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M198 150 L217 143" stroke="#15181b" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="191" cy="157" r="4.5" fill="none" stroke="#c4566f" stroke-width="3"/>
+  <circle cx="190" cy="149" r="4.5" fill="none" stroke="#c4566f" stroke-width="3"/>
+</svg>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Mentors Check</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- body -->
+  <path d="M100 220 Q100 128 150 118 Q200 128 200 220 Z" fill="#C3EBD8"/>
+  <!-- arms holding the phone -->
+  <path d="M112 154 Q116 176 128 180" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <path d="M188 154 Q184 176 172 180" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(83.44 17.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 168c17-10 37-8 52 4" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M170 224c14-10 28-10 42 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+    <path d="M304 224c13 9 27 9 40 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+    <path d="M198 309c35 21 81 21 116 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+  <!-- phone showing a photo -->
+  <rect x="128" y="132" width="44" height="66" rx="8" fill="#44885f"/>
+  <rect x="133" y="140" width="34" height="50" rx="3" fill="#fdf0f3"/>
+  <path d="M136 187 L150 166 L164 187 Z" fill="#C3EBD8"/>
+  <circle cx="160" cy="150" r="3.5" fill="#c4566f"/>
+  <circle cx="128" cy="181" r="8" fill="#C3EBD8"/>
+  <circle cx="172" cy="181" r="8" fill="#C3EBD8"/>
+  <!-- share / upload arrow -->
+  <path d="M202 140 L202 116" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M194 126 L202 114 L210 126" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

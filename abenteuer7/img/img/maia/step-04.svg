@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Imitiere den Mentor</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- faint mentor silhouette (mirroring) -->
+  <g opacity="0.3">
+    <path d="M204 200 Q204 130 232 122 Q260 130 260 200 Z" fill="#44885f"/>
+    <circle cx="232" cy="88" r="30" fill="#44885f"/>
+    <path d="M214 150 Q200 122 194 100" fill="none" stroke="#44885f" stroke-width="14" stroke-linecap="round"/>
+  </g>
+  <!-- body -->
+  <path d="M76 220 Q76 128 126 118 Q176 128 176 220 Z" fill="#C3EBD8"/>
+  <!-- left arm relaxed -->
+  <path d="M90 152 Q82 190 92 200" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="92" cy="200" r="8" fill="#C3EBD8"/>
+  <!-- right arm raised, mirroring the mentor -->
+  <path d="M162 152 Q180 122 188 98" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="190" cy="96" r="8" fill="#C3EBD8"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(59.44 23.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 166c17-10 37-7 52 5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <circle cx="190" cy="221" r="19" fill="#1f1f22"/>
+    <circle cx="322" cy="221" r="19" fill="#1f1f22"/>
+    <path d="M216 310c22 14 56 14 80 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+</svg>

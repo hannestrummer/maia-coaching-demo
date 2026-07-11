@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img">
+  <title>Maia – Schneide Haare</title>
+  <defs>
+    <radialGradient id="faceGradient" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe9f1"/>
+      <stop offset="70%" stop-color="#f8cad9"/>
+      <stop offset="100%" stop-color="#efb6c9"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
+  <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
+  <!-- tripod stand -->
+  <path d="M232 148 L232 196" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M232 196 L215 215" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M232 196 L232 216" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M232 196 L249 215" fill="none" stroke="#44885f" stroke-width="4" stroke-linecap="round"/>
+  <!-- mannequin head on tripod -->
+  <path d="M232 150 L232 140" fill="none" stroke="#f6d3db" stroke-width="10" stroke-linecap="round"/>
+  <ellipse cx="232" cy="118" rx="24" ry="28" fill="#f6d3db"/>
+  <path d="M208 116 Q208 90 232 90 Q256 90 256 116 Q244 104 232 106 Q220 104 208 116 Z" fill="#44885f"/>
+  <!-- body -->
+  <path d="M55 220 Q55 128 105 118 Q155 128 155 220 Z" fill="#C3EBD8"/>
+  <!-- left arm relaxed -->
+  <path d="M68 152 Q60 190 70 198" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="70" cy="198" r="8" fill="#C3EBD8"/>
+  <!-- right arm reaching toward the mannequin -->
+  <path d="M138 150 Q172 128 196 116" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="198" cy="116" r="7" fill="#C3EBD8"/>
+  <!-- head (fixed Maia face) -->
+  <g transform="translate(41.44 25.44) scale(0.26)">
+    <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
+    <path d="M168 176c16-11 35-13 52-4" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <path d="M292 172c17-9 37-7 52 4" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
+    <circle cx="190" cy="221" r="19" fill="#1f1f22"/>
+    <circle cx="322" cy="221" r="19" fill="#1f1f22"/>
+    <path d="M238 313c7 5 25 5 36 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
+  </g>
+  <!-- scissors near the mannequin's hair -->
+  <circle cx="200" cy="114" r="2" fill="#15181b"/>
+  <path d="M200 114 L218 101" stroke="#15181b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M200 114 L218 108" stroke="#15181b" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="193" cy="120" r="4.5" fill="none" stroke="#c4566f" stroke-width="3"/>
+  <circle cx="192" cy="112" r="4.5" fill="none" stroke="#c4566f" stroke-width="3"/>
+</svg>
