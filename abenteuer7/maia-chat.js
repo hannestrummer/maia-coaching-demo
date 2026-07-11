@@ -183,7 +183,7 @@
       var r = await fetch((MAIA_API || "") + "/api/maia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: NAME, system: CHAT_SYSTEM, context: v, session: SESSION }),
+        body: JSON.stringify({ firstName: NAME, adventure: "abenteuer-7", context: v, session: SESSION }),
         signal: ctl.signal
       });
       clearTimeout(to);

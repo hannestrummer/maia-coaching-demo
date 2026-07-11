@@ -35,7 +35,7 @@ async function callMaia(context) {
   let reply = "Das nehme ich mit — schön, dass du drangeblieben bist. 💛";
   try {
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000);
-    const r = await fetch((MAIA_API || "") + "/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, system: MAIA_SYSTEM, context, session: SESSION }), signal: ctl.signal });
+    const r = await fetch((MAIA_API || "") + "/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, adventure: "abenteuer-7", context, session: SESSION }), signal: ctl.signal });
     clearTimeout(to); reply = (await r.json()).reply || reply;
   } catch {}
   t.remove(); add(`<div class="row"><div class="mava"></div><div class="bub">${reply}</div></div>`); logTurn("maia", reply); await sleep(190);
