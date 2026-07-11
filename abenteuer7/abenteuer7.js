@@ -70,7 +70,7 @@ function audioPlayer(playlistTitle, playerId) {
   n.querySelectorAll(".apl-track").forEach((b) => b.onclick = () => { const t = tracks[+b.dataset.i]; au.src = t.url; au.play().catch(() => {}); n.querySelectorAll(".apl-track").forEach((x) => x.classList.remove("on")); b.classList.add("on"); });
   scroll();
 }
-function videoCard(label, vid, caption) { const p = (window.MAIA_POSTER || {})[vid]; add(`<div class="card vcard"><img class="vlogo" src="img/hds-wordmark.svg" alt="Hairdressing.school"><video controls preload="metadata" playsinline${p ? ` poster="${p}"` : ""} src="${VBASE}${vid}.mp4"></video><div class="vmeta"><b>${label}</b>${caption ? `<span>${caption}</span>` : ""}</div></div>`); scroll(); }
+function videoCard(label, vid, caption) { const p = (window.MAIA_POSTER || {})[vid]; add(`<div class="card vcard"><img class="vlogo" src="img/hds-wordmark.svg" alt="Hairdressing.school"><video controls preload="none" playsinline${p ? ` poster="${p}"` : ""} src="${VBASE}${vid}.mp4"></video><div class="vmeta"><b>${label}</b>${caption ? `<span>${caption}</span>` : ""}</div></div>`); scroll(); }
 async function videoStep(label, vid, caption) { videoCard(label, vid, caption); await sleep(360); }
 function badge(title, sub) { add(`<div class="badge"><div class="medal"><img src="img/maia-heart.svg" alt="Maia"></div><b>${title}</b><span>${sub}</span></div>`); }
 
