@@ -259,7 +259,7 @@ async function play() {
   prog(78); chapter("Feiere deine Ergebnisse");
   heroImage("06");
   await typeMaia(`Feiere deine Ergebnisse, ${NAME}! 🎉 Das hast du heute gelernt: eine gerade Linie schneiden.`);
-  await typeMaia(`Zur Wiederholung: aufrecht sitzen, Stativ auf Augenhöhe, feuchtes Haar sorgfältig durchkämmen — dann von rechts in kleinen Schnitten bis zur anderen Seite. Haare zwischen Zeige- und Mittelfinger fixieren (Linkshänder*innen andersrum).`);
+  await typeMaia(`Zur Wiederholung: aufrecht sitzen, Stativ auf Augenhöhe, feuchtes Haar sorgfältig von oben nach unten durchkämmen — dann von rechts in kleinen Schnitten bis zur anderen Seite. Haare zwischen Zeige- und Mittelfinger fixieren (Linkshänder*innen andersrum).`);
   await typeMaia(`Diese Schnittlinie nennt man Außenlinie. Du kannst jetzt schon feinem Haar die Spitzen schneiden — ich bin stolz auf dich! 💫`);
   await weiterInline("Weiter");
 
