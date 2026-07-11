@@ -150,8 +150,43 @@ function uploadCard() {
     img.onload = cleanup; img.onerror = cleanup; img.src = url;
     wrap.appendChild(img); stream.appendChild(wrap); scroll();
     logTurn("user", "[Foto hochgeladen]");
+    downscaleImage(f, 1024).then((dataURL) => { if (dataURL) photoFeedback(dataURL); });   // Maia gibt echtes Feedback aufs Foto (Vision)
   });
   return card;
+}
+// Foto vor dem Senden verkleinern (schneller, günstiger, kleinere Payload)
+function downscaleImage(file, maxDim) {
+  return new Promise((resolve) => {
+    const u = URL.createObjectURL(file); const im = new Image();
+    im.onload = () => {
+      let out = null;
+      try {
+        const w = im.naturalWidth || 1, h = im.naturalHeight || 1;
+        const s = Math.min(1, maxDim / Math.max(w, h));
+        const cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
+        const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+        cv.getContext("2d").drawImage(im, 0, 0, cw, ch);
+        out = cv.toDataURL("image/jpeg", 0.85);
+      } catch (e) { out = null; }
+      try { URL.revokeObjectURL(u); } catch (e) {}
+      resolve(out);
+    };
+    im.onerror = () => { try { URL.revokeObjectURL(u); } catch (e) {} resolve(null); };
+    im.src = u;
+  });
+}
+// Maia schaut sich das Foto an und gibt konkretes Feedback (Vision-Endpoint, Feedback-Mentor-Stil)
+function photoFeedback(dataURL) {
+  return enqueue(async () => {
+    const t = typingRow();
+    let reply = "Danke fürs Hochladen! 💛";
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 22000);   // Vision darf etwas länger dauern
+    try {
+      const r = await fetch((MAIA_API || "") + "/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, adventure: "abenteuer-7", session: SESSION, image: dataURL, reference: PHOTO }), signal: ctl.signal });
+      reply = (await r.json()).reply || reply;
+    } catch (e) {} finally { clearTimeout(to); }
+    t.remove(); maiaBubble(reply); logTurn("maia", reply); await sleep(190);
+  });
 }
 function checklist(items) { add(`<div class="checklist">${items.map(x => `<div class="cl-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${x}</div>`).join("")}</div>`); scroll(); }
 function audioPlayer(playlistTitle, playerId) {
