@@ -138,41 +138,53 @@ function heroImage(stepKey) { const u = IMG[stepKey]; if (u) { add(`<div class="
 /* Echter Foto-Upload: <label> mit verstecktem File-Input → Tap öffnet den Picker; das gewählte
    Foto wird sofort als eigene Bubble gezeigt. (Demo: kein Server-Versand, aber ehrlich sichtbar.) */
 function uploadCard() {
-  const card = add(`<label class="upload"><input type="file" accept="image/*" hidden><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--rose5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><b>Ergebnis hochladen</b><small>zum Team „Mentors Check"</small></label>`);
+  const card = add(`<label class="upload"><input type="file" accept="image/*" hidden multiple><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--rose5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><b>Ergebnis hochladen</b><small>Foto(s) vom Schnitt · bis zu 4</small></label>`);
   const input = card.querySelector("input");
   input.addEventListener("change", () => {
-    const f = input.files && input.files[0]; if (!f) return;
-    const old = stream.querySelector(".uploaded"); if (old) { const oi = old.querySelector("img"); if (oi && oi.src.indexOf("blob:") === 0) { try { URL.revokeObjectURL(oi.src); } catch (e) {} } old.remove(); }   // nur EINE Vorschau; alte Blob-URL sofort freigeben
-    const url = URL.createObjectURL(f);
-    const cleanup = () => { try { URL.revokeObjectURL(url); } catch (e) {} };   // Blob bei load UND error freigeben
-    const wrap = document.createElement("div"); wrap.className = "uploaded";
-    const img = document.createElement("img"); img.alt = "Dein hochgeladenes Ergebnis"; img.decoding = "async";
-    img.onload = cleanup; img.onerror = cleanup; img.src = url;
-    wrap.appendChild(img); stream.appendChild(wrap); scroll();
-    logTurn("user", "[Foto hochgeladen]");
-    downscaleImage(f, 1024).then((dataURL) => { if (dataURL) photoFeedback(dataURL); });   // Maia gibt echtes Feedback aufs Foto (Vision)
+    const files = input.files; if (!files || !files.length) return;
+    const old = stream.querySelector(".uploaded"); if (old) old.remove();   // nur EINE Vorschau behalten
+    compositeImages(files, 1400).then((dataURL) => {
+      if (!dataURL) return;
+      const wrap = document.createElement("div"); wrap.className = "uploaded";
+      const img = document.createElement("img"); img.alt = "Deine hochgeladenen Ergebnisse"; img.decoding = "async"; img.src = dataURL;
+      wrap.appendChild(img); stream.appendChild(wrap); scroll();
+      logTurn("user", "[" + Math.min(files.length, 4) + " Foto(s) hochgeladen]");
+      photoFeedback(dataURL);   // EIN zusammengesetztes Bild an die Vision-KI → spart Tokens (statt N Einzelbilder)
+    });
   });
   return card;
 }
-// Foto vor dem Senden verkleinern (schneller, günstiger, kleinere Payload)
-function downscaleImage(file, maxDim) {
+// Bis zu 4 Fotos clientseitig zu EINEM Collage-Bild zusammensetzen → nur EIN Bild an die Vision-KI (Token-sparend)
+function compositeImages(files, maxDim) {
   return new Promise((resolve) => {
-    const u = URL.createObjectURL(file); const im = new Image();
-    im.onload = () => {
-      let out = null;
-      try {
-        const w = im.naturalWidth || 1, h = im.naturalHeight || 1;
-        const s = Math.min(1, maxDim / Math.max(w, h));
-        const cw = Math.max(1, Math.round(w * s)), ch = Math.max(1, Math.round(h * s));
-        const cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
-        cv.getContext("2d").drawImage(im, 0, 0, cw, ch);
-        out = cv.toDataURL("image/jpeg", 0.85);
-      } catch (e) { out = null; }
-      try { URL.revokeObjectURL(u); } catch (e) {}
+    const list = Array.prototype.slice.call(files, 0, 4);
+    if (!list.length) return resolve(null);
+    const urls = [], imgs = new Array(list.length); let done = 0;
+    const finish = () => {
+      urls.forEach((u) => { try { URL.revokeObjectURL(u); } catch (e) {} });
+      const good = imgs.filter(Boolean);
+      if (!good.length) return resolve(null);
+      const n = good.length, cols = n === 1 ? 1 : 2, rows = Math.ceil(n / cols);
+      const cellW = Math.round(maxDim / cols), cellH = Math.round(cellW * 0.75);
+      const cv = document.createElement("canvas"); cv.width = cellW * cols; cv.height = cellH * rows;
+      const ctx = cv.getContext("2d"); ctx.fillStyle = "#0d0d0d"; ctx.fillRect(0, 0, cv.width, cv.height);
+      good.forEach((im, i) => {
+        const x = (i % cols) * cellW, y = Math.floor(i / cols) * cellH;
+        const iw = im.naturalWidth || 1, ih = im.naturalHeight || 1;
+        const s = Math.max(cellW / iw, cellH / ih);   // cover-fit je Zelle
+        const dw = iw * s, dh = ih * s;
+        ctx.drawImage(im, x + (cellW - dw) / 2, y + (cellH - dh) / 2, dw, dh);
+      });
+      let out = null; try { out = cv.toDataURL("image/jpeg", 0.85); } catch (e) { out = null; }
       resolve(out);
     };
-    im.onerror = () => { try { URL.revokeObjectURL(u); } catch (e) {} resolve(null); };
-    im.src = u;
+    list.forEach((f, i) => {
+      const u = URL.createObjectURL(f); urls.push(u);
+      const im = new Image();
+      im.onload = () => { imgs[i] = im; if (++done === list.length) finish(); };
+      im.onerror = () => { imgs[i] = null; if (++done === list.length) finish(); };
+      im.src = u;
+    });
   });
 }
 // Maia schaut sich das Foto an und gibt konkretes Feedback (Vision-Endpoint, Feedback-Mentor-Stil)
