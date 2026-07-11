@@ -25,6 +25,18 @@
   .vcard{padding:0}
   .vcard video{width:100%;max-height:300px;display:block;background:#000;border-radius:15px 15px 0 0}
   .vcard .vmeta{padding:11px 14px}
+  /* Bild-Karte (echte WP-Illustration) */
+  .imgcard{align-self:flex-start;max-width:70%;margin-left:34px;background:#fff;border-radius:15px;padding:14px;box-shadow:0 3px 12px rgba(0,0,0,.08)}
+  .imgcard img{width:100%;display:block}
+  /* Audio-Player (echte Sourance-Tracks) */
+  .audiopl{align-self:flex-start;max-width:88%;margin-left:34px;background:#fff;border-radius:15px;padding:14px 16px;box-shadow:0 3px 12px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.07)}
+  .apl-head{font-family:'Syne',sans-serif;font-weight:700;font-size:14px;color:var(--mint-deep);display:flex;flex-direction:column;gap:2px;margin-bottom:10px}
+  .apl-head small{font-family:'DM Sans',sans-serif;font-weight:400;color:var(--light);font-size:11.5px}
+  .apl-tracks{display:flex;flex-direction:column;gap:7px;margin-bottom:10px}
+  .apl-track{display:flex;align-items:center;gap:9px;background:var(--mint-soft);border:1.5px solid transparent;color:var(--ink);border-radius:11px;padding:9px 12px;font:inherit;font-size:13.5px;cursor:pointer;text-align:left}
+  .apl-track svg{color:var(--mint-deep);flex:none}
+  .apl-track.on{border-color:var(--mint-deep);background:#fff}
+  .apl-audio{width:100%;height:34px}
 </style>
 </head>
 <body>
@@ -54,6 +66,7 @@
 <script src="games/beobachtung.js"></script>
 <script src="games/satz-bauen.js"></script>
 <script src="games/schneide.js"></script>
+<script src="config.js"></script>
 <script src="abenteuer7.js"></script>
 </body>
 </html>
