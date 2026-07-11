@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="styles.css">
 <style>
   /* App-Frame: Topbar/Tabs fix, Chat-Mitte scrollt (folgt automatisch) */
-  .phone{height:100vh;height:100dvh;max-height:100dvh;overflow:hidden}  /* dvh: iOS-Tastatur/Chrome schneiden den Composer nicht ab */
+  .phone{height:100vh;height:100dvh;min-height:100dvh;max-height:100dvh;overflow:hidden}  /* an den dynamischen Viewport genagelt (überschreibt min-height:100vh) → unten wird nichts vom Browserbalken verdeckt */
   .stream{overflow-y:auto;min-height:0}
   .stream>*{flex-shrink:0}  /* Chat-Elemente nie zusammendrücken (Video-Karte kollabierte sonst auf Höhe 0) */
   /* Abenteuer-7-Ergänzungen (Maia-Tokens) */
@@ -29,10 +29,8 @@
   .vcard .vwrap{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:15px 15px 0 0;overflow:hidden}
   .vcard .vwrap video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;border:0}
   .vcard .vmeta{padding:11px 14px}
-  /* weiches weißes Eck-Fade löst das eingebrannte Wasserzeichen (minusplus / ONLINE HAIR SCHOOL) auf —
-     auf dem weißen Studio-Hintergrund praktisch unsichtbar; darüber unser EINES Logo */
-  .vcard .vwrap::after{content:"";position:absolute;top:0;left:0;width:48%;height:72px;z-index:1;pointer-events:none;background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,.85) 45%,rgba(255,255,255,0) 80%)}
-  .vlogo{position:absolute;top:9px;left:9px;height:18px;width:auto;padding:5px 8px;background:#fff;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,.14);z-index:3;pointer-events:none}
+  /* Nur unser Logo in der Ecke — deckend, verdeckt das kleine eingebrannte Wasserzeichen (minusplus / ONLINE HAIR SCHOOL); kein zusätzlicher Schleier */
+  .vlogo{position:absolute;top:8px;left:8px;height:19px;width:auto;padding:5px 9px;background:#fff;border-radius:7px;box-shadow:0 1px 4px rgba(0,0,0,.16);z-index:3;pointer-events:none}
   /* Einheitliches gebrandetes Cover im Ruhezustand (versteckt das uneinheitliche Video-Intro) */
   .vcard .vcover{position:absolute;inset:0;z-index:2;border:none;padding:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2f4f3f,#1b2a22);cursor:pointer;transition:opacity .4s ease}
   .vcard .vcover.hidden{opacity:0;pointer-events:none}
@@ -61,13 +59,16 @@
   .apl-audio{width:100%;height:34px}
   /* EIN durchgehender Chat: permanente Eingabe + geführte Steuerelemente inline */
   .dock:has(.composer){padding:0;border-top:none}
-  .composer{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;border-top:1px solid var(--g2);transition:background .25s ease}
-  .composer input{flex:1;min-width:0;background:var(--g1);border:1.5px solid transparent;border-radius:50px;padding:11px 15px;font:inherit;font-size:14px;color:var(--ink);outline:none;transition:background .2s,border-color .2s,box-shadow .2s}
+  /* Composer = schwebende, klar antippbare Leiste; hebt sich beim Fokus leicht an ("kommt dir entgegen") */
+  .dock:has(.composer){padding:0;border-top:none;background:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+  .composer{display:flex;align-items:center;gap:6px;margin:9px 12px;padding:5px 6px 5px 10px;background:#fff;border:1px solid var(--g2);border-radius:28px;box-shadow:0 6px 20px rgba(0,0,0,.13);transition:box-shadow .2s,transform .2s,border-color .2s}
+  .composer:focus-within{transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.17)}
+  .composer input{flex:1;min-width:0;background:transparent;border:none;padding:11px 4px;font:inherit;font-size:16px;color:var(--ink);outline:none}
   .composer input::placeholder{color:var(--light)}
-  .composer button{width:38px;height:38px;flex:none;border:none;border-radius:50%;background:var(--rose5);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .2s}
+  .composer button{width:44px;height:44px;flex:none;border:none;border-radius:50%;background:var(--rose5);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .2s}
   .composer button:active{transform:scale(.94)}
   .composer button svg{width:19px;height:19px;fill:#fff}
-  .composer.answering input{background:var(--mint-soft);border-color:var(--mint);box-shadow:0 0 0 3px rgb(var(--mint-wash)/.32)}
+  .composer.answering{border-color:var(--mint);box-shadow:0 0 0 3px rgb(var(--mint-wash)/.42),0 6px 20px rgba(0,0,0,.13)}
   .composer.answering button{background:var(--mint-deep)}
   .inline-chips{align-self:flex-start;max-width:88%;margin-left:34px;display:flex;flex-wrap:wrap;gap:8px;animation:pop .35s cubic-bezier(.16,1,.3,1)}
   .inline-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--rose5);border:1.5px solid var(--rose2);border-radius:50px;padding:9px 15px;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .12s,background .2s,color .2s,border-color .2s,box-shadow .2s}

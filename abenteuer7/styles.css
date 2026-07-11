@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);
   background:radial-gradient(circle at top right,rgb(var(--mint-wash)/.45),transparent 46%),linear-gradient(180deg,rgb(var(--mint-wash)/.30) 0%,#fff 34%,#fff 100%);
-  min-height:100vh;display:flex;justify-content:center;}
+  height:100vh;height:100dvh;overflow:hidden;display:flex;justify-content:center;}
 .head-font{font-family:'Syne',sans-serif;font-weight:700}
 
 .phone{width:100%;max-width:440px;min-height:100vh;display:flex;flex-direction:column;background:transparent}
