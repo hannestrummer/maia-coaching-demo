@@ -17,55 +17,148 @@ const SESSION = (()=>{try{let s=localStorage.getItem("maiaSession"); if(!s){s=(s
 function logTurn(role,text){ if(!MAIA_API||!text) return; try{ fetch(MAIA_API+"/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:SESSION,role,text,adventure:"abenteuer-7"}),keepalive:true}).catch(()=>{});}catch(e){} }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const scroll = () => { stream.scrollTop = stream.scrollHeight; setTimeout(() => { stream.scrollTop = stream.scrollHeight; }, 30); };
+/* Auto-Folgen mit Sinn: nur nach unten scrollen, wenn der Nutzer ohnehin (fast) unten ist.
+   Liest er weiter oben nach, bleibt die Position stehen (kein Ruck). Fühlt sich „Apple" an. */
+let autoFollow = true;
+stream.addEventListener("scroll", () => { autoFollow = (stream.scrollHeight - stream.scrollTop - stream.clientHeight) < 90; }, { passive: true });
+let scrollPending = false;   // viele scroll()-Aufrufe pro Frame zu EINEM Layout-Read/Write bündeln (kein Thrashing, kein Timer-Sturm)
+const scroll = () => {
+  if (!autoFollow || scrollPending) return;
+  scrollPending = true;
+  setTimeout(() => { scrollPending = false; if (autoFollow) stream.scrollTop = stream.scrollHeight; }, 32);
+};
 function add(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); const n = d.firstChild; stream.appendChild(n); scroll(); return n; }
 function prog(p) { progbar.style.width = p + "%"; }
 function chapter(t) { add(`<div class="chapter">${t}</div>`); document.getElementById("ctx").textContent = "Basic Cut I · " + t; }
 
-async function typeMaia(text) {
-  const t = add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>');
-  await sleep(Math.min(420 + text.length * 10, 1400)); t.remove();
-  add(`<div class="row"><div class="mava"></div><div class="bub">${text}</div></div>`);
-  logTurn("maia", text);
-  await sleep(190);
-}
-function addUser(text) { add(`<div class="row user"><div class="bub">${text}</div></div>`); logTurn("user", text); }
-async function callMaia(context) {
-  const t = add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>');
-  let reply = "Das nehme ich mit — schön, dass du drangeblieben bist. 💛";
-  try {
-    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000);
-    const r = await fetch((MAIA_API || "") + "/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, adventure: "abenteuer-7", context, session: SESSION }), signal: ctl.signal });
-    clearTimeout(to); reply = (await r.json()).reply || reply;
-  } catch {}
-  t.remove(); add(`<div class="row"><div class="mava"></div><div class="bub">${reply}</div></div>`); logTurn("maia", reply); await sleep(190);
-}
+/* ---- EIN durchgehender Chat ----
+   Alle Maia-Äußerungen (geführt wie frei) laufen durch EINE FIFO-Turn-Queue (turnChain):
+   sie verschachteln sich nie und erscheinen immer in Absende-Reihenfolge. Geführte Steuer-
+   elemente (Chips / Weiter) stehen INLINE im Verlauf; die Eingabe unten ist IMMER da.
+   Reflexions-Schritte nutzen askAnswer(frage, placeholder): Frage stellen UND Composer scharf
+   schalten im SELBEN Queue-Turn — der Antwort-Modus ist damit erst aktiv, wenn die Frage an der
+   Reihe ist (nach evtl. davor eingereihten freien Antworten), aber schon während sie tippt.
+   Sonst erreicht getippter Text Maia als freie Frage inline, ohne den Kurs zu überspringen. */
+let turnChain = Promise.resolve();   // serialisiert alle Maia-Turns (FIFO)
+let answerResolver = null;           // gesetzt, wenn der Kurs auf eine getippte Antwort wartet
+let sending = false;                 // true, solange eine freie Frage unterwegs ist (Backpressure)
+const DEFAULT_PH = "Frag mich alles …";
+function enqueue(task) { const p = turnChain.then(task).catch((e) => { console.error("maia turn error", e); }); turnChain = p; return p; }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-function gateChips(options) {
-  return new Promise((res) => {
-    dock.innerHTML = `<div class="chips">${options.map((o, i) => `<button class="chip" data-i="${i}">${o}</button>`).join("")}</div>`;
-    dock.querySelectorAll(".chip").forEach((c) => c.onclick = () => { const i = +c.dataset.i; dock.innerHTML = ""; res(i); });
+function typingRow() { return add('<div class="typing"><div class="mava"></div><div class="d"><i></i><i></i><i></i></div></div>'); }
+function maiaBubble(text) {  // Text/Reply IMMER via textContent → kein HTML aus Modell-Antworten (XSS zu)
+  const row = document.createElement("div"); row.className = "row";
+  const av = document.createElement("div"); av.className = "mava";
+  const b = document.createElement("div"); b.className = "bub"; b.textContent = text;
+  row.appendChild(av); row.appendChild(b); stream.appendChild(row); scroll();
+}
+function typeMaia(text) {
+  return enqueue(async () => {
+    const t = typingRow();
+    await sleep(Math.min(420 + text.length * 10, 1400)); t.remove();
+    maiaBubble(text); logTurn("maia", text); await sleep(190);
   });
 }
-function gateWeiter(label) {
-  return new Promise((res) => { dock.innerHTML = `<button class="cta" id="cta">${label}</button>`; document.getElementById("cta").onclick = () => { dock.innerHTML = ""; res(); }; });
+function addUser(text) { const row = document.createElement("div"); row.className = "row user"; const b = document.createElement("div"); b.className = "bub"; b.textContent = text; row.appendChild(b); stream.appendChild(row); scroll(); logTurn("user", text); }
+function callMaia(context) {
+  return enqueue(async () => {
+    const t = typingRow();
+    let reply = "Das nehme ich mit — schön, dass du drangeblieben bist. 💛";
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 8000);
+    try {
+      const r = await fetch((MAIA_API || "") + "/api/maia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: NAME, adventure: "abenteuer-7", context, session: SESSION }), signal: ctl.signal });
+      reply = (await r.json()).reply || reply;   // Abort deckt auch json(); danach erst clearTimeout
+    } catch (e) {} finally { clearTimeout(to); }
+    t.remove(); maiaBubble(reply); logTurn("maia", reply); await sleep(190);
+  });
 }
-function gateText(ph) {
+
+/* ---- Permanente Eingabe (der frühere „dock" ist jetzt der Composer, immer sichtbar) ---- */
+function setPlaceholder(t) { const i = dock.querySelector("#ft"); if (i) i.placeholder = t; }
+function setAnswering(on) { const c = dock.querySelector(".composer"); if (c) c.classList.toggle("answering", !!on); }
+function freeContext(v) { return `${NAME} schreibt gerade frei im Kurs-Chat (Abenteuer 7, Basic Cut I): "${v}". Antworte warm und hilfreich in 1-2 Sätzen, bleib beim Friseur-Handwerk, dem Kurs und ihrer Motivation. Passt es gar nicht, lenk sie sanft zurück. Danach macht sie einfach weiter.`; }
+function setSendEnabled(on) { const b = dock.querySelector("#sb"); if (b) b.disabled = !on; const i = dock.querySelector("#ft"); if (i) i.readOnly = !on; }   // readonly während des Sendens → kein alter Entwurf, der später als Antwort fehlrouten könnte
+function onComposerSubmit() {
+  const inp = dock.querySelector("#ft"); if (!inp) return;
+  const v = inp.value.trim(); if (!v) return;
+  if (answerResolver) {   // Reflexions-Schritt wartet auf DIESE Antwort → erfüllt den Schritt
+    inp.value = ""; addUser(v);
+    const r = answerResolver; answerResolver = null; setPlaceholder(DEFAULT_PH); setAnswering(false);
+    r(v); return;
+  }
+  if (sending) return;    // nur EINE freie Frage zugleich → keine Queue-Starvation, Kurs bleibt vorn
+  inp.value = ""; addUser(v);
+  sending = true; setSendEnabled(false);
+  callMaia(freeContext(v)).then(() => { sending = false; setSendEnabled(true); });
+}
+function mountComposer() {
+  dock.innerHTML = `<div class="composer inputbar"><input id="ft" placeholder="${DEFAULT_PH}" autocomplete="off" aria-label="Nachricht an Maia"><button id="sb" type="button" aria-label="Senden"><svg viewBox="0 0 24 24" fill="#fff" width="19" height="19"><path d="M4 12l16-8-6 16-2-6-8-2z"/></svg></button></div>`;
+  dock.querySelector("#sb").onclick = onComposerSubmit;
+  dock.querySelector("#ft").addEventListener("keydown", (e) => { if (e.key === "Enter") onComposerSubmit(); });
+}
+
+/* ---- Geführte Steuerelemente INLINE im Verlauf (statt im dock) ---- */
+// Stellt die Frage UND schaltet den Composer als Antwort scharf — beides im SELBEN Queue-Turn.
+// Dadurch ist der Antwort-Modus erst aktiv, wenn die Frage tatsächlich an der Reihe ist (nach
+// evtl. davor eingereihten freien Antworten), aber bereits während sie tippt. → Eine früh
+// getippte Antwort geht nicht verloren, und eine freie Frage davor wird nicht fehlgeroutet.
+function askAnswer(question, ph) {
+  return new Promise((resolve) => {
+    enqueue(async () => {
+      answerResolver = resolve;
+      const i0 = dock.querySelector("#ft"); if (i0) i0.value = "";   // ungesendeten freien Entwurf verwerfen, bevor der Antwort-Modus greift (sonst würde er als Antwort fehlrouten)
+      setPlaceholder(ph || DEFAULT_PH); setAnswering(true);
+      const t = typingRow();
+      await sleep(Math.min(420 + question.length * 10, 1400)); t.remove();
+      maiaBubble(question); logTurn("maia", question);
+      const i = dock.querySelector("#ft"); if (i) { try { i.focus({ preventScroll: true }); } catch (e) { i.focus(); } }
+    });
+  });
+}
+function chipsInline(options) {
   return new Promise((res) => {
-    dock.innerHTML = `<div class="inputbar"><input id="ft" placeholder="${ph}" autocomplete="off"><button id="sb" aria-label="Senden"><svg viewBox="0 0 24 24" fill="#fff" width="19" height="19"><path d="M4 12l16-8-6 16-2-6-8-2z"/></svg></button></div>`;
-    const inp = document.getElementById("ft"), go = () => { const v = inp.value.trim(); if (!v) return; dock.innerHTML = ""; addUser(v); res(v); };
-    document.getElementById("sb").onclick = go; inp.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); }); inp.focus();
+    const row = add(`<div class="inline-chips">${options.map((o, i) => `<button class="inline-chip" type="button" data-i="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${esc(o)}</button>`).join("")}</div>`);
+    row.querySelectorAll(".inline-chip").forEach((c) => c.onclick = () => {
+      const i = +c.dataset.i;
+      row.querySelectorAll(".inline-chip").forEach((x) => { x.disabled = true; x.classList.toggle("chosen", x === c); });
+      addUser(options[i]); res(i);
+    });
+  });
+}
+function weiterInline(label) {
+  return new Promise((res) => {
+    const row = add(`<div class="inline-cta-wrap"><button class="inline-cta" type="button">${label}</button></div>`);
+    row.querySelector(".inline-cta").onclick = () => { row.remove(); res(); };
   });
 }
 
 // --- Bausteine ---
-function heroImage(stepKey) { const u = IMG[stepKey]; if (u) { add(`<div class="imgcard"><img src="${u}" alt=""></div>`); scroll(); } }
+function heroImage(stepKey) { const u = IMG[stepKey]; if (u) { add(`<div class="imgcard"><img src="${u}" alt="" loading="lazy" decoding="async"></div>`); scroll(); } }
+/* Echter Foto-Upload: <label> mit verstecktem File-Input → Tap öffnet den Picker; das gewählte
+   Foto wird sofort als eigene Bubble gezeigt. (Demo: kein Server-Versand, aber ehrlich sichtbar.) */
+function uploadCard() {
+  const card = add(`<label class="upload"><input type="file" accept="image/*" hidden><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--rose5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><b>Ergebnis hochladen</b><small>zum Team „Mentors Check"</small></label>`);
+  const input = card.querySelector("input");
+  input.addEventListener("change", () => {
+    const f = input.files && input.files[0]; if (!f) return;
+    const old = stream.querySelector(".uploaded"); if (old) { const oi = old.querySelector("img"); if (oi && oi.src.indexOf("blob:") === 0) { try { URL.revokeObjectURL(oi.src); } catch (e) {} } old.remove(); }   // nur EINE Vorschau; alte Blob-URL sofort freigeben
+    const url = URL.createObjectURL(f);
+    const cleanup = () => { try { URL.revokeObjectURL(url); } catch (e) {} };   // Blob bei load UND error freigeben
+    const wrap = document.createElement("div"); wrap.className = "uploaded";
+    const img = document.createElement("img"); img.alt = "Dein hochgeladenes Ergebnis"; img.decoding = "async";
+    img.onload = cleanup; img.onerror = cleanup; img.src = url;
+    wrap.appendChild(img); stream.appendChild(wrap); scroll();
+    logTurn("user", "[Foto hochgeladen]");
+  });
+  return card;
+}
 function checklist(items) { add(`<div class="checklist">${items.map(x => `<div class="cl-item"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${x}</div>`).join("")}</div>`); scroll(); }
 function audioPlayer(playlistTitle, playerId) {
   const tracks = AUDIO[playerId] || [];
-  if (!tracks.length) { add(`<div class="audio"><div class="p" style="opacity:.5"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div><div class="acol"><b>${playlistTitle}</b><small>Track wird geladen …</small></div></div>`); scroll(); return; }
-  const rows = tracks.map((t, i) => `<button class="apl-track" data-i="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>${t.title || ("Track " + (i + 1))}</span></button>`).join("");
-  const n = add(`<div class="audiopl"><div class="apl-head">🎧 ${playlistTitle}<small>Wähl intuitiv einen Track</small></div><div class="apl-tracks">${rows}</div><audio class="apl-audio" controls preload="none"></audio></div>`);
+  if (!tracks.length) { add(`<div class="audio"><div class="p" style="opacity:.5"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div><div class="acol"><b>${esc(playlistTitle)}</b><small>Track wird geladen …</small></div></div>`); scroll(); return; }
+  const rows = tracks.map((t, i) => `<button class="apl-track" data-i="${i}"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>${esc(t.title || ("Track " + (i + 1)))}</span></button>`).join("");
+  const n = add(`<div class="audiopl"><div class="apl-head">🎧 ${esc(playlistTitle)}<small>Wähl intuitiv einen Track</small></div><div class="apl-tracks">${rows}</div><audio class="apl-audio" controls preload="none"></audio></div>`);
   const au = n.querySelector(".apl-audio");
   n.querySelectorAll(".apl-track").forEach((b) => b.onclick = () => { const t = tracks[+b.dataset.i]; au.src = t.url; au.play().catch(() => {}); n.querySelectorAll(".apl-track").forEach((x) => x.classList.remove("on")); b.classList.add("on"); });
   scroll();
@@ -78,10 +171,10 @@ async function playGame(fn) {
   const host = add(`<div class="gamehost"></div>`);
   const skip = add(`<div class="gameskip"><button type="button">Spiel überspringen →</button></div>`);
   let settled = false;
-  const gameP = Promise.resolve().then(() => fn(host)).then((r) => { settled = true; return { skipped: false, r }; });
+  const gameP = Promise.resolve().then(() => fn(host)).then((r) => { settled = true; return { skipped: false, r }; }, (e) => { console.error("game error", e); settled = true; return { skipped: false, r: null, errored: true }; });
   const skipP = new Promise((res) => { skip.querySelector("button").onclick = () => { if (settled) return; res({ skipped: true, r: null }); }; });
   const out = await Promise.race([gameP, skipP]);
-  if (out.skipped) { try { host.dispatchEvent(new CustomEvent("gamedispose")); } catch (e) {} host.remove(); }
+  if (out.skipped || out.errored) { try { host.dispatchEvent(new CustomEvent("gamedispose")); } catch (e) {} host.remove(); }   // toten/halben Host nie stehen lassen
   skip.remove();
   return out.r;
 }
@@ -97,7 +190,7 @@ async function play() {
   await typeMaia(`Kopfhörer auf, aufrecht & bequem sitzen — und wähl intuitiv einen Track. Achte auch auf die Länge. Go with the flow!`);
   audioPlayer("Stimm dich ein – Alle", "92");
   await sleep(300);
-  await gateWeiter("Bin eingestimmt – weiter");
+  await weiterInline("Bin eingestimmt – weiter");
 
   // 2) COACHING: MIT ALLEN SINNEN — echter Inhalt + Ankommen (Atem)
   prog(16); chapter("Coaching · Mit allen Sinnen");
@@ -107,10 +200,9 @@ async function play() {
   await typeMaia(`Diese Neugier darf dich in einen neuen Bewusstseinszustand begleiten — atme einmal mit mir. 🌬️`);
   const gAtem = firstGame(["gameAtem"]);
   if (gAtem) await playGame(gAtem);
-  await typeMaia(`Kurze Frage: Wie merkst du dir etwas am leichtesten — und wie muss dir eine Info gezeigt werden, damit sie hängen bleibt?`);
-  const learn = await gateText("Wie du am besten lernst …");
+  const learn = await askAnswer(`Kurze Frage: Wie merkst du dir etwas am leichtesten — und wie muss dir eine Info gezeigt werden, damit sie hängen bleibt?`, "Wie du am besten lernst …");
   await callMaia(`${NAME} beantwortet die Frage, wie sie sich etwas am leichtesten merkt und wie ihr etwas gezeigt werden muss, mit: "${learn}". Antworte warm in 1-2 Sätzen, würdige ihre Antwort konkret und verbinde sie mit dem Gedanken, dass alle Sinne beim Lernen mitspielen.`);
-  await gateWeiter("Weiter");
+  await weiterInline("Weiter");
 
   // 3) SCHNEIDE PAPIER — 4 echte Videos + Schneide-Spiel
   prog(32); chapter("Schneide Papier");
@@ -134,7 +226,7 @@ async function play() {
   await videoStep("Clip 1 · So sieht's aus", "533055976", "So ungefähr soll deine Bewegung aussehen.");
   await videoStep("Clip 2 · Der Mentor", "515266864", "Schau genau hin und mach es nach.");
   await typeMaia(`Ungewohnt am Anfang? Sei beruhigt — das geht uns allen so. 🙂`);
-  await gateWeiter("Nachgemacht – weiter");
+  await weiterInline("Nachgemacht – weiter");
 
   // 5) SCHNEIDE HAARE — 3 echte Videos + echte Technik-Tipps
   prog(64); chapter("Schneide Haare");
@@ -146,7 +238,7 @@ async function play() {
   await videoStep("Clip 1 · Schere halten", "752204544", "Schere mit Daumen und Ringfinger führen.");
   await videoStep("Clip 2 · Schere einstellen", "618370982", "Neutral eingestellt? Widerstand über die Schraube in der Mitte anpassen.");
   await videoStep("Clip 3 · Um den Kopf schneiden", "743191114", "Dein Ziel heute: einmal gerade um den Kopf.");
-  await gateWeiter("Geschnitten – weiter");
+  await weiterInline("Geschnitten – weiter");
 
   // 6) FEIERE DEINE ERGEBNISSE — echtes Recap (KEIN Quiz)
   prog(78); chapter("Feiere deine Ergebnisse");
@@ -154,18 +246,16 @@ async function play() {
   await typeMaia(`Feiere deine Ergebnisse, ${NAME}! 🎉 Das hast du heute gelernt: eine gerade Linie schneiden.`);
   await typeMaia(`Zur Wiederholung: aufrecht sitzen, Stativ auf Augenhöhe, feuchtes Haar sorgfältig durchkämmen — dann von rechts in kleinen Schnitten bis zur anderen Seite. Haare zwischen Zeige- und Mittelfinger fixieren (Linkshänder*innen andersrum).`);
   await typeMaia(`Diese Schnittlinie nennt man Außenlinie. Du kannst jetzt schon feinem Haar die Spitzen schneiden — ich bin stolz auf dich! 💫`);
-  await gateWeiter("Weiter");
+  await weiterInline("Weiter");
 
   // 7) MENTORS CHECK — echtes Beispielfoto + Upload + Team-Link
   prog(88); chapter("Mentors Check");
   await typeMaia(`Zeig deinen Mentoren dein Ergebnis und hol dir Feedback. 📸`);
   if (PHOTO) add(`<div class="card vcard"><img src="${PHOTO}" alt="Beispiel: Außenlinie / One Length" style="width:100%;display:block;border-radius:15px 15px 0 0"><div class="vmeta"><b>Beispiel</b><span>Basic Cut 1 · Abenteuer 7 · um den Kopf geschnitten</span></div></div>`);
   await sleep(200);
-  await typeMaia(`Lade ein Foto deines Ergebnisses hoch und stell eine Frage dazu — so bekommst du persönliches Feedback.`);
-  add(`<div class="upload"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--rose5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg><b>Ergebnis hochladen</b><small>zum Team „Mentors Check"</small></div>`);
-  await sleep(200);
-  const q = await gateText("Deine Frage an die Mentoren …");
-  await typeMaia(`Top — das geht mit deinem Foto ans Team „Mentors Check". Du bekommst bald Feedback. 💛`);
+  uploadCard();   // echter Datei-Picker; gewähltes Foto erscheint inline
+  const q = await askAnswer(`Lade dein Foto hoch und stell eine Frage dazu — so bekommst du persönliches Feedback.`, "Deine Frage an die Mentoren …");
+  await typeMaia(`Sobald dein Foto hochgeladen ist, schaut das Team „Mentors Check" drüber — du bekommst dann Feedback. 💛`);
 
   // 8) VERTIEFE DEIN WISSEN — echte Sourance (Playlist 101)
   prog(94); chapter("Vertiefe dein Wissen");
@@ -174,7 +264,7 @@ async function play() {
   await typeMaia(`Wieder: Kopfhörer auf, aufrecht & bequem, intuitiv einen Track wählen, auf die Länge achten. Enjoy it!`);
   audioPlayer("Vertiefe dein Wissen – Alle", "101");
   await sleep(300);
-  await gateWeiter("Hat gutgetan");
+  await weiterInline("Hat gutgetan");
 
   // 9) TAGEBUCH DEINER STÄRKEN — echtes Journal-Framing
   prog(100); chapter("Tagebuch deiner Stärken");
@@ -182,13 +272,15 @@ async function play() {
   await typeMaia(`Zum Schluss dein „Tagebuch deiner Stärken", ${NAME}. 📔`);
   await typeMaia(`Das Besondere: Das Papier zeigt nur, was du über Stärken, Erfolge, Ressourcen und deine nächsten kleinen Schritte schreibst — Misslungenes hinterlässt keine Spur.`);
   await typeMaia(`Reflektier am besten jeden Abend so. Kein solches Tagebuch zur Hand? Nimm irgendeins und tu einfach so, als wäre es dieses besondere.`);
-  await typeMaia(`Jetzt gleich, geführt durch eine Frage: Was ist dir heute gut gelungen?`);
-  const win = await gateText("Deine Stärke heute …");
+  const win = await askAnswer(`Jetzt gleich, geführt durch eine Frage: Was ist dir heute gut gelungen?`, "Deine Stärke heute …");
   await callMaia(`${NAME} schreibt ins Stärken-Tagebuch (Abenteuer 7): "${win}". Würdige das warm und ermutige, dranzubleiben.`);
   document.getElementById("stars").textContent = "480";
   badge("Abenteuer 7 ✓", "Basic Cut I · +40 Sterne");
   await sleep(300);
-  dock.innerHTML = `<button class="cta" onclick="location.reload()">Nochmal erleben</button>`;
+  // Composer bleibt stehen — der Chat mit Maia geht weiter, auch nach dem Abenteuer.
+  add(`<div class="inline-cta-wrap"><button class="inline-cta" type="button" onclick="location.reload()">Nochmal erleben</button></div>`);
+  await typeMaia(`Und wenn dir noch was durch den Kopf geht — frag mich einfach hier. Ich bin da. 💛`);
 }
 
+mountComposer();
 play();

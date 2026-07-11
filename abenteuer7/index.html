@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Maia · Basic Cut I · Abenteuer 7</title>
 <meta name="description" content="Abenteuer 7 – dein erster Schnitt, chat-first mit Maia">
 <meta property="og:type" content="website">
@@ -10,10 +10,12 @@
 <meta property="og:title" content="Abenteuer 7 · Basic Cut I">
 <meta property="og:description" content="Chat-first lernen mit Maia – vom Papier bis zum ersten Schnitt um den Kopf.">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="styles.css">
 <style>
   /* App-Frame: Topbar/Tabs fix, Chat-Mitte scrollt (folgt automatisch) */
-  .phone{height:100vh;max-height:100vh;overflow:hidden}
+  .phone{height:100vh;height:100dvh;max-height:100dvh;overflow:hidden}  /* dvh: iOS-Tastatur/Chrome schneiden den Composer nicht ab */
   .stream{overflow-y:auto;min-height:0}
   .stream>*{flex-shrink:0}  /* Chat-Elemente nie zusammendrücken (Video-Karte kollabierte sonst auf Höhe 0) */
   /* Abenteuer-7-Ergänzungen (Maia-Tokens) */
@@ -40,6 +42,37 @@
   .apl-track svg{color:var(--mint-deep);flex:none}
   .apl-track.on{border-color:var(--mint-deep);background:#fff}
   .apl-audio{width:100%;height:34px}
+  /* EIN durchgehender Chat: permanente Eingabe + geführte Steuerelemente inline */
+  .dock:has(.composer){padding:0;border-top:none}
+  .composer{display:flex;align-items:center;gap:8px;padding:10px 14px 8px;border-top:1px solid var(--g2);transition:background .25s ease}
+  .composer input{flex:1;min-width:0;background:var(--g1);border:1.5px solid transparent;border-radius:50px;padding:11px 15px;font:inherit;font-size:14px;color:var(--ink);outline:none;transition:background .2s,border-color .2s,box-shadow .2s}
+  .composer input::placeholder{color:var(--light)}
+  .composer button{width:38px;height:38px;flex:none;border:none;border-radius:50%;background:var(--rose5);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .12s,background .2s}
+  .composer button:active{transform:scale(.94)}
+  .composer button svg{width:19px;height:19px;fill:#fff}
+  .composer.answering input{background:var(--mint-soft);border-color:var(--mint);box-shadow:0 0 0 3px rgb(var(--mint-wash)/.32)}
+  .composer.answering button{background:var(--mint-deep)}
+  .inline-chips{align-self:flex-start;max-width:88%;margin-left:34px;display:flex;flex-wrap:wrap;gap:8px;animation:pop .35s cubic-bezier(.16,1,.3,1)}
+  .inline-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--rose5);border:1.5px solid var(--rose2);border-radius:50px;padding:9px 15px;font:inherit;font-size:13.5px;font-weight:500;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .12s,background .2s,color .2s,border-color .2s,box-shadow .2s}
+  .inline-chip:hover{border-color:var(--rose4)}
+  .inline-chip:active{transform:scale(.97)}
+  .inline-chip svg{width:15px;height:15px;flex:none;margin-left:-2px}
+  .inline-chip:not(.chosen) svg{display:none}
+  .inline-chip.chosen{background:var(--rose5);color:#fff;border-color:var(--rose5);box-shadow:0 3px 10px rgba(196,86,111,.35)}
+  .inline-chip:disabled{cursor:default}
+  .inline-chip:not(.chosen):disabled{opacity:.45;box-shadow:none}
+  .inline-cta-wrap{align-self:stretch;display:flex;justify-content:center;margin:2px 0;animation:pop .35s cubic-bezier(.16,1,.3,1)}
+  .inline-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--mint-deep);color:#fff;border:none;border-radius:50px;padding:12px 26px;font:inherit;font-size:15px;font-weight:500;cursor:pointer;box-shadow:0 3px 10px rgba(68,136,95,.32);transition:transform .12s,box-shadow .2s}
+  .inline-cta:hover{box-shadow:0 5px 16px rgba(68,136,95,.4)}
+  .inline-cta:active{transform:scale(.99)}
+  @media (prefers-reduced-motion:reduce){.inline-chips,.inline-cta-wrap{animation:none}.inline-chip,.inline-cta,.composer,.composer input,.composer button{transition:none}.composer.answering input{animation:none}}
+  /* Performance / Apple-Feel: flüssiges Momentum-Scrollen (Browser komponiert den Overflow-Scroller selbst;
+     kein will-change, kein content-visibility — Ersatzhöhen führten laut Review zu Fling-Sprüngen). */
+  .stream{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  /* Apple-Tap-Ziele ≥44px + Safe-Area an der UNTERSTEN Leiste (Tabs), nicht am Composer */
+  .composer button{width:44px;height:44px}
+  .inline-chip,.inline-cta,.apl-track{min-height:44px}
+  .tabs{padding-bottom:env(safe-area-inset-bottom,0px)}
 </style>
 </head>
 <body>
@@ -62,15 +95,10 @@
   /* Lokal (Vorschau) = lokale <id>.mp4; öffentlich = R2-Basis (1080p hd) */
   window.MAIA_VBASE = /localhost|127\.0\.0\.1/.test(location.hostname) ? "" : "https://pub-7a15297f99d046709153c4dea423e1b2.r2.dev/";
 </script>
+<!-- nur die in Abenteuer 7 tatsächlich genutzten Spiele laden -->
 <script src="games/atem.js"></script>
-<script src="games/mindset-sort.js"></script>
-<script src="games/prinzipien-match.js"></script>
-<script src="games/reflex-slider.js"></script>
-<script src="games/beobachtung.js"></script>
-<script src="games/satz-bauen.js"></script>
 <script src="games/schneide.js"></script>
 <script src="config.js"></script>
 <script src="abenteuer7.js"></script>
-<script src="maia-chat.js"></script>
 </body>
 </html>
