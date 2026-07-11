@@ -29,7 +29,7 @@ const scroll = () => {
 };
 function add(html) { const d = document.createElement("div"); d.innerHTML = html.trim(); const n = d.firstChild; stream.appendChild(n); scroll(); return n; }
 function prog(p) { progbar.style.width = p + "%"; }
-function chapter(t) { add(`<div class="chapter">${t}</div>`); document.getElementById("ctx").textContent = "Basic Cut I · " + t; }
+function chapter(t) { add(`<div class="chapter">${t}</div>`); }   /* Kopf zeigt dauerhaft „Basic Cut I · Abenteuer 7"; der aktuelle Schritt steht als Chip im Verlauf */
 
 /* ---- EIN durchgehender Chat ----
    Alle Maia-Äußerungen (geführt wie frei) laufen durch EINE FIFO-Turn-Queue (turnChain):
