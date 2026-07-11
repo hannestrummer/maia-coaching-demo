@@ -108,7 +108,7 @@
     '<div class="mc-grab" aria-hidden="true"></div>' +
     '<div class="mc-head">' +
       '<img class="mc-ava" src="img/maia-warm.svg" alt="Maia">' +
-      '<div><h2>Maia</h2><p>Immer für dich da</p></div>' +
+      '<div><h2>Maia</h2><p>Basic Cut I · Abenteuer 7</p></div>' +
       '<button type="button" class="mc-x" aria-label="Schließen">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
       '</button>' +
@@ -116,7 +116,7 @@
     '<div class="mc-msgs" id="mc-msgs"></div>' +
     '<div class="mc-foot">' +
       '<div class="inputbar">' +
-        '<input id="mc-input" placeholder="Frag Maia irgendwas …" autocomplete="off" aria-label="Nachricht an Maia">' +
+        '<input id="mc-input" placeholder="Frag mich hier alles …" autocomplete="off" aria-label="Nachricht an Maia">' +
         '<button id="mc-send" type="button" aria-label="Senden">' +
           '<svg viewBox="0 0 24 24" fill="#fff" width="19" height="19" aria-hidden="true"><path d="M4 12l16-8-6 16-2-6-8-2z"/></svg>' +
         '</button>' +
@@ -204,10 +204,8 @@
   function open() {
     if (isOpen) return;
     isOpen = true;
-    if (!greeted) {
-      greeted = true;
-      addBubble("maia", "Hey " + NAME + "! Ich bin die ganze Zeit an deiner Seite 💛 Frag mich alles – zur Übung, zur Schere oder wenn's kurz hakt.");
-    }
+    // Keine neue Begrüßung — Maia ist schon die Stimme im Chat; das hier ist nur die Fortsetzung.
+    try { var _ctx = document.getElementById("ctx"); var _sub = sheet.querySelector(".mc-head p"); if (_ctx && _sub && _ctx.textContent.trim()) _sub.textContent = _ctx.textContent; } catch (e) {}
     sheet.style.transform = ""; // clear any drag offset
     scrim.classList.add("mc-open");
     sheet.classList.add("mc-open");
