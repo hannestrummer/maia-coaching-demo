@@ -8,16 +8,19 @@
  * Idee (passt zum Lernschritt „Schneide Papier" — ruhige Hand üben):
  *   Eine sanft geschwungene, gestrichelte FÜHRUNGSLINIE läuft von links
  *   nach rechts über „Papier". Lena drückt auf die Schere und fährt sie an
- *   der Linie entlang nach rechts. Jeder Tick misst die Abweichung von der
+ *   der Linie entlang nach rechts. Jeder Frame misst die Abweichung von der
  *   Linie -> daraus wächst eine Live-Präzisionsanzeige. Warm & verzeihend,
  *   kein hartes Scheitern. 1 kurze Runde (bis ans Linienende, max ~20 s).
  *
- * WICHTIG — Preview-Renderer: requestAnimationFrame UND CSS-Transitions/
- * -Animationen sind hier eingefroren. Deshalb läuft ALLE Bewegung über
- * einen setTimeout-Stepper (~50 ms), Deltas via performance.now(), und die
- * Positionen werden pro Tick DIREKT gesetzt (SVG-transform/-Attribute).
- * Pointer-Events (down/move/up + Touch-Fallback) sind erlaubt und treiben
- * nur die Ziel-Fingerposition; der Stepper malt.
+ * Performance:
+ *   Die Bewegung läuft über requestAnimationFrame (60 fps). Der Loop startet
+ *   ERST beim ersten Griff (kein Idle-Loop davor) und pausiert bei verstecktem
+ *   Tab (visibilitychange) sowie wenn der Host aus dem DOM fliegt. Pointer-
+ *   Events treiben nur die Ziel-Fingerposition (in EINEN rAF gebündelt); der
+ *   Loop malt. Kein getBoundingClientRect pro Event (Rect wird beim Griff
+ *   gecacht, bei resize/scroll invalidiert). Der Balken animiert über
+ *   transform:scaleX (kein Layout), Text/Attribute werden nur bei echter
+ *   Änderung geschrieben. prefers-reduced-motion schaltet den Idle-Puls ab.
  */
 (function () {
   "use strict";
@@ -30,9 +33,15 @@
   var MID = H * 0.5;          // Ruhelage
   var AMP = 44;               // Wellen-Amplitude (sanft)
   var TOL = 34;               // Abweichung (in viewBox-Einheiten) -> Präzision 0
-  var TICK = 50;              // Stepper-Intervall (kein rAF!)
   var MAX_MS = 20000;         // Sicherheits-Deckel für die Rundenlänge
   var DONE_AT = 0.985;        // ab hier gilt die Linie als gefahren
+
+  // prefers-reduced-motion einmal auswerten (best effort).
+  var REDUCE = false;
+  try {
+    REDUCE = !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  } catch (e) { REDUCE = false; }
 
   // Sanft geschwungene Führungslinie: y als Funktion von x (viewBox-Koords).
   function lineY(x) {
@@ -69,6 +78,10 @@
 
       // ---- DOM: weiße Karte auf Mint ------------------------------------
       var wrap = htmlEl("div", "sc-wrap");
+      // Idle-Puls an der Schere (rein per CSS, GPU) — lädt zum Greifen ein.
+      // Bei prefers-reduced-motion aus; stattdessen dekorative Motion hart weg.
+      if (!REDUCE) wrap.classList.add("sc-idle");
+      else wrap.classList.add("reduce");
       var title = htmlEl("div", "sc-title", "Führe die Schere an der Linie");
       var sub = htmlEl("div", "sc-sub",
         "Drück auf die <b>Schere</b> und fahr sie ruhig an der Linie entlang nach rechts.");
@@ -104,6 +117,7 @@
       try { trailLen = trail.getTotalLength(); } catch (e) { trailLen = RX - LX; }
       trail.style.strokeDasharray = trailLen;
       trail.style.strokeDashoffset = trailLen; // erst verborgen
+      var lastTrailOff = -1;                   // letzter gemalter Offset (ganz-px)
 
       // Start- und Ziel-Marker
       svg.appendChild(svgEl("circle", {
@@ -114,7 +128,7 @@
         stroke: "var(--rose5,#c4566f)", "stroke-width": "2", "stroke-dasharray": "2 3",
       }));
 
-      // Schere (bewegt sich pro Tick per transform)
+      // Schere (bewegt sich pro Frame per transform)
       var sciss = svgEl("g", { class: "sc-sciss" });
       sciss.appendChild(svgEl("circle", {
         r: "15", fill: "var(--rose5,#c4566f)", stroke: "#ffffff", "stroke-width": "3",
@@ -151,35 +165,50 @@
       host.appendChild(wrap);
 
       // ---- Zustand -------------------------------------------------------
-      var done = false;
+      var finished = false;      // Runde vorbei (Abschluss/Timeout/Abbruch)
+      var settled = false;       // Promise genau einmal aufgelöst
       var armed = false;         // Runde gestartet (erster Griff)?
       var holding = false;       // Finger liegt an?
       var activePointer = null;
       var fingerX = LX, fingerY = MID;
-      var sciX = LX, sciY = MID;  // aktuelle Scheren-Position
+      var sciX = -999, sciY = -999; // aktuelle Scheren-Position (erzwingt 1. Write)
       var lastSX = LX;            // letzte x-Position (für Vorwärts-Delta)
       var cutX = LX;              // wie weit ist geschnitten (nur vorwärts)
       var devSum = 0, devW = 0;   // gewichtete Präzisions-Summe / Gewicht (dx)
       var elapsed = 0;
       var lastTs = 0;
-      var timer = 0;
+      var rafId = 0;
+      var lastPct = -1;           // letzter gemalter Prozentwert
       var lastCheer = "";
+      var domObserver = null;     // erkennt direktes host.remove() ohne gamedispose
+      var sizeObserver = null;    // invalidiert das Rect bei SVG-Größenänderung
+      // Gecachtes SVG-Rect (kein getBoundingClientRect pro Event).
+      var rect = null, rectDirty = true;
 
       // ---- Zeichnen ------------------------------------------------------
       function setSciss(x, y) {
+        if (x === sciX && y === sciY) return;   // keine redundanten Attribut-Writes
         sciX = x; sciY = y;
         sciss.setAttribute("transform", "translate(" + x.toFixed(2) + "," + y.toFixed(2) + ")");
       }
       function paintTrail() {
         var prog = (cutX - LX) / (RX - LX);
         if (prog < 0) prog = 0; else if (prog > 1) prog = 1;
-        trail.style.strokeDashoffset = (trailLen * (1 - prog)).toFixed(2);
+        // Auf ganze Pixel gerundet -> Schreiben nur bei sichtbarem Zuwachs,
+        // nicht bei jedem Sub-Pixel-Frame.
+        var off = Math.round(trailLen * (1 - prog));
+        if (off === lastTrailOff) return;
+        lastTrailOff = off;
+        trail.style.strokeDashoffset = off;
       }
       // verzeihende Kurve: hebt mittlere Werte an, kein hartes Scheitern
       function shape(p) { return Math.pow(clamp(p, 0, 1), 0.85); }
       function updateMeter(running) {
         var pct = Math.round(shape(running) * 100);
-        fill.style.width = pct + "%";
+        if (pct === lastPct) return;             // Text/Balken nur bei Änderung
+        lastPct = pct;
+        // Balken via transform:scaleX (kein Layout-Reflow, GPU-freundlich).
+        fill.style.transform = "scaleX(" + (pct / 100).toFixed(4) + ")";
         valEl.textContent = pct + "%";
       }
       function setCheer(txt) {
@@ -195,23 +224,25 @@
         return "Ganz sanft nachführen";
       }
 
-      // ---- Stepper: einziger Bewegungs-Treiber ---------------------------
-      function loop() {
-        if (done) return;
-        if (!host.isConnected) { abort(); return; } // Host entfernt -> sauber raus
-        var ts = now();
-        if (!lastTs) lastTs = ts;
-        var dt = Math.min(ts - lastTs, 120); // ms, gegen Sprünge nach Tab-Wechsel
-        lastTs = ts;
+      // ---- rAF-Loop-Steuerung -------------------------------------------
+      function startLoop() {
+        if (rafId || finished) return;
+        lastTs = 0;   // erster Frame -> dt=0, kein Sprung nach Pause
+        rafId = requestAnimationFrame(loop);
+      }
+      function stopLoop() {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      }
 
-        if (!armed) {
-          // Idle: Schere wippt sanft am Start (zieht den Blick, auch wenn
-          // CSS-Animationen eingefroren sind — wir malen selbst).
-          var bob = Math.sin(ts / 480) * 5;
-          setSciss(LX, lineY(LX) + bob);
-          timer = setTimeout(loop, TICK);
-          return;
-        }
+      function loop(ts) {
+        rafId = 0;
+        if (finished) return;
+        if (!host.isConnected) { abort(); return; }   // Host entfernt -> sauber raus
+        if (document.hidden) return;                    // Tab versteckt -> pausieren
+        if (typeof ts !== "number") ts = now();
+        if (!lastTs) lastTs = ts;
+        var dt = Math.min(ts - lastTs, 120);            // gegen Sprünge nach Tab-Wechsel
+        lastTs = ts;
 
         elapsed += dt;
 
@@ -229,7 +260,7 @@
           }
           lastSX = sx;
 
-          if (sx > cutX) { cutX = sx; paintTrail(); }
+          if (sx > cutX) { cutX = sx; paintTrail(); }   // Spur nur bei Zuwachs
 
           var running = devW > 0 ? devSum / devW : 1;
           updateMeter(running);
@@ -240,7 +271,7 @@
         }
 
         if (elapsed >= MAX_MS) { finish(); return; }
-        timer = setTimeout(loop, TICK);
+        rafId = requestAnimationFrame(loop);
       }
 
       // ---- Abschluss -----------------------------------------------------
@@ -249,18 +280,19 @@
         return Math.round(shape(running) * 100);
       }
       function finish() {
-        if (done) return;
-        done = true;
-        if (timer) clearTimeout(timer);
-        cleanup();
+        if (finished) return;
+        finished = true;
+        stopLoop();
         holding = false;
 
         var pct = finalPrecision();
         // Schere ans Linienende setzen, Spur voll zeigen
         cutX = RX; paintTrail();
         setSciss(clamp(sciX, LX, RX), lineY(clamp(sciX, LX, RX)));
-        fill.style.width = pct + "%";
+        lastPct = pct;
+        fill.style.transform = "scaleX(" + (pct / 100).toFixed(4) + ")";
         valEl.textContent = pct + "%";
+        wrap.classList.remove("sc-idle");
         wrap.classList.add("sc-finished");
 
         title.textContent = "Präzision: " + pct + "%";
@@ -275,18 +307,27 @@
         cta.type = "button";
         cta.textContent = "Weiter ✂️";
         wrap.appendChild(cta);
-        cta.addEventListener("click", function () {
-          resolve({ precision: pct });
-        });
+        // Über settle() auflösen -> Listener wird beim Cleanup mit entfernt.
+        on(cta, "click", function () { settle({ precision: pct }); });
+      }
+
+      // ---- Promise genau einmal auflösen + alles aufräumen --------------
+      // Gemeinsamer Pfad für „Weiter"-Klick UND externes Dispose/Skip.
+      function settle(result) {
+        if (settled) return;
+        settled = true;
+        finished = true;
+        stopLoop();
+        if (domObserver) { try { domObserver.disconnect(); } catch (e) {} domObserver = null; }
+        if (sizeObserver) { try { sizeObserver.disconnect(); } catch (e) {} sizeObserver = null; }
+        cleanup();
+        resolve(result);
       }
 
       // ---- Dispose / Abbruch --------------------------------------------
       function abort() {
-        if (done) return;
-        done = true;
-        if (timer) clearTimeout(timer);
-        cleanup();
-        resolve({ precision: finalPrecision(), aborted: true });
+        if (settled) return;
+        settle({ precision: finalPrecision(), aborted: true });
       }
 
       // ---- Pointer-Handling ---------------------------------------------
@@ -302,32 +343,44 @@
         listeners = [];
       }
 
+      function ensureRect() {
+        if (rectDirty || !rect) { rect = svg.getBoundingClientRect(); rectDirty = false; }
+        return rect;
+      }
       function toCoords(pt) {
-        var rect = svg.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        fingerX = (pt.clientX - rect.left) / rect.width * W;
-        fingerY = (pt.clientY - rect.top) / rect.height * H;
+        var r = ensureRect();
+        if (!r.width || !r.height) return;
+        fingerX = (pt.clientX - r.left) / r.width * W;
+        fingerY = (pt.clientY - r.top) / r.height * H;
       }
 
       function press(e) {
-        if (done) return;
+        if (finished) return;
         if (e && e.cancelable) e.preventDefault();
         // zweiter Finger, während einer schon führt -> ignorieren
         if (e && e.pointerId != null && activePointer != null && e.pointerId !== activePointer) return;
+        // Layout-verändernde DOM-Mutationen ZUERST (die lange Instruktion wird
+        // zur kurzen „Schön ruhig …" -> die Karte wird flacher, das SVG rückt
+        // hoch). Erst DANACH das Rect messen, sonst wird der Cache stale und
+        // verfälscht fingerY -> Präzision.
+        if (!armed) { armed = true; wrap.classList.remove("sc-idle"); }
+        if (sub.style.display !== "none") sub.textContent = "Schön ruhig …";
+        rectDirty = true;                 // frisch messen (nach den Mutationen)
         var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
         toCoords(pt);
         if (e && e.pointerId != null) {
           activePointer = e.pointerId;
           try { svg.setPointerCapture(e.pointerId); } catch (e2) {}
         }
-        armed = true;
         holding = true;
         lastSX = clamp(fingerX, LX, RX); // kein Sprung-Bonus beim (Neu-)Greifen
-        sciss.classList.add("grab");
-        if (sub.style.display !== "none") sub.textContent = "Schön ruhig …";
+        sciss.classList.add("grab");      // nur Cursor -> kein Layout-Shift
+        startLoop();                      // Loop startet erst hier (kein Idle-Loop)
       }
+      // Pointer-Move nur Ziel setzen (billig, gecachtes Rect) -> in EINEN
+      // rAF gebündelt; der Loop liest die letzte Position und malt.
       function move(e) {
-        if (done || !holding) return;
+        if (finished || !holding) return;
         if (e && e.pointerId != null && activePointer != null && e.pointerId !== activePointer) return;
         if (e && e.cancelable) e.preventDefault();
         var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
@@ -339,6 +392,12 @@
         activePointer = null;
         holding = false;
         sciss.classList.remove("grab");
+      }
+      function invalidateRect() { rectDirty = true; }
+      // Tab versteckt -> Finger lösen + Loop pausieren; zurück -> Loop weiter.
+      function onVis() {
+        if (document.hidden) { release(); stopLoop(); }
+        else if (armed && !finished) { startLoop(); }
       }
 
       on(host, "gamedispose", abort); // playGame() feuert das vor host.remove()
@@ -357,16 +416,40 @@
         on(window, "mouseup", release);
       }
       on(window, "blur", release);
+      on(window, "resize", invalidateRect, { passive: true });
+      // Capture-Phase: fängt scroll AUCH von inneren Containern (z. B. dem
+      // Chat-Scroller .stream), deren scroll-Events nicht bis window bubbeln.
+      on(window, "scroll", invalidateRect, { capture: true, passive: true });
+      on(document, "visibilitychange", onVis);
 
-      // Startbild zeichnen + Stepper anwerfen
+      // Größenänderungen des SVG (responsives Layout, Panel-Resize ohne
+      // window-resize) invalidieren das gecachte Rect ebenfalls.
+      try {
+        if (window.ResizeObserver) {
+          sizeObserver = new ResizeObserver(function () { rectDirty = true; });
+          sizeObserver.observe(svg);
+        }
+      } catch (e) { sizeObserver = null; }
+
+      // Zusätzlich zum gamedispose-Event auch direktes host.remove() erkennen
+      // (der Loop läuft vor der ersten Interaktion nicht) -> sauber abbrechen.
+      try {
+        if (window.MutationObserver && host.parentNode) {
+          domObserver = new MutationObserver(function () {
+            if (!host.isConnected) abort();   // abort ist idempotent (settled)
+          });
+          domObserver.observe(host.parentNode, { childList: true });
+        }
+      } catch (e) { domObserver = null; }
+
+      // Startbild zeichnen (statisch, KEIN Loop vor der ersten Interaktion).
       setSciss(LX, lineY(LX));
       updateMeter(0);
-      timer = setTimeout(loop, TICK);
     });
   };
 
   // Führungslinien-Pfad als Polyline aus lineY() (SVG stimmt so mit der
-  // Messung im Stepper exakt überein).
+  // Messung im Loop exakt überein).
   function buildPath() {
     var d = "M " + LX.toFixed(1) + " " + lineY(LX).toFixed(1);
     var N = 48;
@@ -404,6 +487,9 @@
       "-webkit-tap-highlight-color:transparent;cursor:crosshair}",
       s + " .sc-sciss{cursor:grab}",
       s + " .sc-sciss.grab{cursor:grabbing}",
+      // Idle-Puls (nur ohne prefers-reduced-motion, per CSS-Compositor, kein JS-Loop).
+      s + ".sc-idle .sc-sciss{animation:" + uid + "-pulse 1.8s ease-in-out infinite}",
+      "@keyframes " + uid + "-pulse{0%,100%{opacity:1}50%{opacity:.62}}",
 
       // Präzisions-Anzeige
       s + " .sc-meter{display:flex;flex-direction:column;gap:5px;margin-top:1px}",
@@ -414,8 +500,9 @@
       "color:var(--mint-deep,#44885f);letter-spacing:0}",
       s + " .sc-bar{position:relative;height:9px;border-radius:50px;overflow:hidden;",
       "background:var(--rose2,#f6d3db)}",
-      // Kein CSS-Transition (im Preview eingefroren) — Breite wird direkt gesetzt.
-      s + " .sc-fill{height:100%;width:0%;border-radius:50px;",
+      // Balken via transform:scaleX (kein Layout) — Breite bleibt 100%, Ursprung links.
+      s + " .sc-fill{height:100%;width:100%;border-radius:50px;",
+      "transform:scaleX(0);transform-origin:left center;will-change:transform;",
       "background:linear-gradient(90deg,var(--mint,#C3EBD8),var(--mint-deep,#44885f))}",
 
       s + " .sc-cheer{min-height:18px;text-align:center;font-size:13px;font-weight:600;",
@@ -426,7 +513,12 @@
       s + " .sc-cta{margin-top:4px;width:100%;border:none;background:var(--rose5,#c4566f);",
       "color:#fff;border-radius:50px;padding:12px;font-family:inherit;font-size:15px;",
       "font-weight:500;cursor:pointer;box-shadow:0 3px 10px rgba(196,86,111,.40)}",
-      s + " .sc-cta:active{transform:scale(.99)}"
+      s + " .sc-cta:active{transform:scale(.99)}",
+
+      // prefers-reduced-motion: dekorative Transitions/Animationen im Scope aus
+      // (Schere folgt weiter dem Finger — die Interaktion bleibt erhalten).
+      s + " .sc-wrap.reduce,",
+      s + " .sc-wrap.reduce *{transition:none!important;animation:none!important}"
     ].join("");
   }
 })();

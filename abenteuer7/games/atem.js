@@ -2,14 +2,26 @@
  * Vertrag:  window.gameAtem = function(host){ return Promise }
  *   host  = leeres DIV (Klasse "gamehost") im Chat-Stream.
  *   Rendert IN host; Promise löst nach abgeschlossener Übung auf: { breaths }.
+ *   Bei Dispose (Überspringen / host.remove()) löst sie sanft mit dem
+ *   Zwischenstand auf ({ breaths, aborted:true }).
  * Keine externen Libs, kein Nested-Scroll, mobile-first (~300–340px).
  *
- * Interaktion (NEU, echt fingergesteuert per setTimeout-Stepper):
+ * Interaktion:
  *   Halten  -> Kreis WÄCHST in Echtzeit (Einatmen), bis er den Zielring füllt.
  *   Loslassen -> Kreis SINKT wieder (Ausatmen).
  *   Ein voller Zyklus (wachsen bis oben + zurück auf Ruhe) = 1 Atemzug.
  *   Nach BREATHS Atemzügen: warmer Abschluss, dann resolve({breaths}).
  * So folgt der Kreis wirklich dem Finger — das ist der Punkt der Übung.
+ *
+ * Performance:
+ *   Die sichtbare Bewegung läuft über requestAnimationFrame (60 fps, nur
+ *   GPU-freundliche transform/opacity). Der rAF-Loop startet ERST beim ersten
+ *   Griff (kein Idle-Loop davor) und pausiert bei verstecktem Tab
+ *   (visibilitychange) sowie wenn der Host aus dem DOM fliegt. Zeit-Deltas
+ *   kommen aus dem rAF-/performance.now()-Zeitstempel, damit das Atemtempo
+ *   tab-unabhängig stimmt. setTimeout bleibt nur für semantische Verzögerungen
+ *   (Button ausblenden, Abschlusspause). prefers-reduced-motion wird
+ *   respektiert: kein Idle-Puls, harter (transitionsloser) Abschluss.
  */
 (function () {
   "use strict";
@@ -18,12 +30,17 @@
   var MAX = 1.5;       // maximale Skalierung des Kreises (voll eingeatmet)
   var IN_MS = 3500;    // Referenz-Tempo Einatmen (nur Wachstums-Geschwindigkeit)
   var OUT_MS = 5000;   // Referenz-Tempo Ausatmen (nur Schrumpf-Geschwindigkeit)
-  var TICK = 50;       // Stepper-Intervall (setTimeout, nicht rAF -> läuft auch
-                       // bei verstecktem Tab weiter, statt einzufrieren)
   var TOP = MAX - 0.03;   // ab hier gilt "voll eingeatmet"
   var BASE = 1.03;        // bis hier zurück gilt "ausgeatmet"
   var HOLD_MS = 1400;     // kurz oben halten, dann Aufforderung zum Loslassen
   var NUDGE_MS = 2800;    // hält er weiter -> deutlicher Hinweis „jetzt loslassen"
+
+  // prefers-reduced-motion einmal auswerten (best effort).
+  var REDUCE = false;
+  try {
+    REDUCE = !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  } catch (e) { REDUCE = false; }
 
   window.gameAtem = function (host) {
     return new Promise(function (resolve) {
@@ -61,22 +78,33 @@
       wrap.appendChild(count);
       wrap.appendChild(start);
       host.appendChild(wrap);
+      // Reduced-Motion: alle dekorativen Transitions/Animationen im Kartenscope
+      // hart abschalten (Interaktion bleibt funktional).
+      if (REDUCE) wrap.classList.add("reduce");
 
       // ---- Zustand ----------------------------------------------------------
       var armed = false;        // Übung gestartet (Audio-Geste erfolgt)?
-      var done = false;
+      var done = false;         // Loop beendet (Abschluss ODER Abbruch)
+      var settled = false;      // Promise genau einmal aufgelöst
       var holding = false;      // Finger/Maus liegt gerade an?
       var scale = 1;            // aktuelle Kreisgröße
+      var lastScale = -1;       // letzter gemalter Wert (spart redundante Writes)
       var reachedTop = false;   // in DIESEM Zyklus schon voll eingeatmet?
       var holdSince = 0;        // Zeitstempel, seit wann oben gehalten wird
       var breaths = 0;
       var lastPhase = "";       // "in" | "hold" | "release" | "nudge" | "out" | "rest"
       var lastTs = 0;
-      var timer = 0;            // setTimeout-Handle des Steppers
+      var rafId = 0;            // requestAnimationFrame-Handle des Steppers
+      var fadeRaf = 0;          // one-shot: Ein-Blenden des Leittexts (say)
+      var finishRaf = 0;        // one-shot: Skalensprung im Abschluss
       var startHideTimer = 0;   // one-shot: Start-Button ausblenden
+      var finishTimer = 0;      // one-shot: Abschlusspause bis zur Auflösung
+      var domObserver = null;   // erkennt direktes host.remove() ohne gamedispose
 
       // ---- Kreis in Echtzeit setzen (kein CSS-Transition während des Spiels)-
       function paint() {
+        if (scale === lastScale) return;   // nur bei echter Änderung neu malen
+        lastScale = scale;
         ring.style.transform = "scale(" + scale.toFixed(4) + ")";
         glow.style.transform = "scale(" + (scale * 1.08).toFixed(4) + ")";
         var t = (scale - 1) / (MAX - 1);        // 0..1 Füllgrad
@@ -86,11 +114,17 @@
       function say(text, cls) {
         if (word.dataset.t === text) return;    // nicht bei jedem Frame neu setzen
         word.dataset.t = text;
-        word.className = "atem-word " + (cls || "");
-        void word.offsetHeight;
+        word.className = "atem-word " + (cls || "");   // .show weg -> Startzustand
         word.textContent = text;
-        if (text) word.classList.add("show");
-        else word.classList.remove("show");
+        if (fadeRaf) { cancelAnimationFrame(fadeRaf); fadeRaf = 0; }
+        if (!text) return;                      // leer -> unsichtbar lassen
+        // Ein-Blenden ohne synchronen Layout-Read: .show erst im nächsten Frame
+        // (kein forced reflow im rAF-/Phasen-Pfad). Handle wird getrackt und in
+        // settle() storniert; Callback zusätzlich gegen settled abgesichert.
+        fadeRaf = requestAnimationFrame(function () {
+          fadeRaf = 0;
+          if (!settled && word.dataset.t === text) word.classList.add("show");
+        });
       }
 
       // Optionales, sehr leises Puls-Feedback (WebAudio, best effort).
@@ -99,6 +133,13 @@
         try {
           if (actx && actx.state === "suspended") {
             var pr = actx.resume(); if (pr && pr.catch) pr.catch(function () {});
+          }
+        } catch (e) {}
+      }
+      function closeAudio() {
+        try {
+          if (actx && actx.state !== "closed") {
+            var pc = actx.close(); if (pc && pc.catch) pc.catch(function () {});
           }
         } catch (e) {}
       }
@@ -116,15 +157,28 @@
         } catch (e) { /* Ton ist optional */ }
       }
 
-      // ---- Herzstück: setTimeout-Stepper, folgt dem Finger ------------------
-      // Bewusst KEIN requestAnimationFrame: rAF friert ein, sobald der Tab in
-      // den Hintergrund geht. setTimeout läuft (gedrosselt) weiter, deshalb
-      // arbeiten wir delta-basiert mit performance.now().
-      function loop() {
+      // ---- rAF-Loop-Steuerung ----------------------------------------------
+      // Der Loop läuft flüssig auf 60 fps, sobald die Übung gestartet ist, und
+      // liest pro Frame den Halte-Zustand. Er pausiert bei verstecktem Tab und
+      // wird sauber gestoppt, wenn der Host verschwindet.
+      function startLoop() {
+        if (rafId || done) return;
+        lastTs = 0;   // erster Frame -> dt=0, kein Sprung nach Pause
+        rafId = requestAnimationFrame(loop);
+      }
+      function stopLoop() {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      }
+
+      function loop(ts) {
+        rafId = 0;
         if (done) return;
         // Host aus dem DOM entfernt (z. B. „überspringen") -> sauber aufhören.
         if (host && !host.isConnected) { abort(); return; }
-        var ts = (window.performance && performance.now) ? performance.now() : Date.now();
+        // Versteckter Tab -> pausieren; visibilitychange nimmt den Loop wieder auf.
+        if (document.hidden) return;
+
+        if (typeof ts !== "number") ts = nowMs();
         if (!lastTs) lastTs = ts;
         var dt = Math.min(ts - lastTs, 120);    // ms, gegen Sprünge nach Tab-Wechsel
         lastTs = ts;
@@ -161,19 +215,20 @@
           count.textContent = breaths >= BREATHS
             ? "Geschafft"
             : "Atemzug " + (breaths + 1) + " / " + BREATHS;
-          if (breaths >= BREATHS) return finish();
+          if (breaths >= BREATHS) { finish(); return; }
           setPhase("rest");
         } else {
           setPhase("rest");
         }
 
-        timer = setTimeout(loop, TICK);
+        rafId = requestAnimationFrame(loop);
       }
 
       function setPhase(p) {
         if (p === lastPhase) return;
         lastPhase = p;
-        wrap.classList.toggle("hint-hold", p === "rest" || p === "in");
+        // Idle-Puls am Zielring nur, wenn keine Reduzierung gewünscht ist.
+        if (!REDUCE) wrap.classList.toggle("hint-hold", p === "rest" || p === "in");
         if (p === "in")   { say("Einatmen …", "in"); ping(392); }
         else if (p === "hold") say("Halten …", "hold");
         else if (p === "release") { say("Und loslassen …", "out"); ping(294); } // Signal: jetzt ausatmen
@@ -182,33 +237,63 @@
         else say("Halte den Kreis gedrückt", "rest");
       }
 
-      // ---- Abschluss: 1 warmer Satz, dann Promise auflösen -----------------
-      function finish() {
+      // ---- Promise genau einmal auflösen + alles aufräumen -----------------
+      // EIN gemeinsamer, idempotenter Pfad für Abschluss UND Dispose/Skip:
+      // stoppt Loop, löscht ALLE Timer, entfernt ALLE Listener (inkl.
+      // gamedispose), schließt Audio -> weder Doppel-Resolve noch Leak.
+      function settle(result) {
+        if (settled) return;
+        settled = true;
         done = true;
-        if (timer) clearTimeout(timer);
-        if (startHideTimer) clearTimeout(startHideTimer);
+        stopLoop();
+        if (fadeRaf) { cancelAnimationFrame(fadeRaf); fadeRaf = 0; }
+        if (finishRaf) { cancelAnimationFrame(finishRaf); finishRaf = 0; }
+        if (finishTimer) { clearTimeout(finishTimer); finishTimer = 0; }
+        if (startHideTimer) { clearTimeout(startHideTimer); startHideTimer = 0; }
+        if (domObserver) { try { domObserver.disconnect(); } catch (e) {} domObserver = null; }
         cleanup();
+        closeAudio();
+        resolve(result);
+      }
+
+      // ---- Abschluss: 1 warmer Satz, dann (verzögert) auflösen -------------
+      // Stoppt Interaktion/Loop, lässt aber gamedispose bis zur echten
+      // Auflösung aktiv -> ein Skip während der 1,5-s-Pause geht sauber über
+      // abort() -> settle({aborted}) und der Abschlusstimer wird gelöscht.
+      function finish() {
+        if (done) return;
+        done = true;
+        stopLoop();
+        if (startHideTimer) { clearTimeout(startHideTimer); startHideTimer = 0; }
         holding = false;
         wrap.classList.remove("hint-hold");
         wrap.classList.add("atem-done");
-        // sanfter Schluss-Puls über echte CSS-Transition
-        ring.style.transition = "transform 1200ms ease-in-out";
-        glow.style.transition = "transform 1200ms ease-in-out, opacity 1200ms ease";
-        void ring.offsetHeight;
-        scale = 1.12; paint();
+        if (!REDUCE) {
+          // sanfter Schluss-Puls über echte CSS-Transition; den Skalensprung
+          // erst im nächsten Frame setzen, damit die Transition greift — ohne
+          // synchronen Layout-Read (void offsetHeight).
+          ring.style.transition = "transform 1200ms ease-in-out";
+          glow.style.transition = "transform 1200ms ease-in-out, opacity 1200ms ease";
+          finishRaf = requestAnimationFrame(function () {
+            finishRaf = 0;
+            if (!settled) { scale = 1.12; paint(); }
+          });
+        } else {
+          scale = 1.12; paint();
+        }
         say("", "");
         title.textContent = "Da bist du.";
         sub.innerHTML = "Spürst du, wie sich alles ein wenig geweitet hat? " +
           "Diese Ruhe kannst du jederzeit selbst holen — sie gehört dir. 🌱";
-        setTimeout(function () {
-          try { if (actx && actx.state !== "closed") { var pc = actx.close(); if (pc && pc.catch) pc.catch(function () {}); } } catch (e) {}
-          resolve({ breaths: breaths });
+        finishTimer = setTimeout(function () {
+          finishTimer = 0;
+          settle({ breaths: breaths });
         }, 1500);
       }
 
       // ---- Start (Audio-Geste) + Interaktion --------------------------------
       function arm() {
-        if (armed) return;
+        if (armed || done) return;
         armed = true;
         try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
         catch (e) { actx = null; }
@@ -216,8 +301,7 @@
         startHideTimer = setTimeout(function () { start.style.display = "none"; }, 260);
         count.textContent = "Atemzug 1 / " + BREATHS;
         setPhase("rest");
-        lastTs = 0;
-        timer = setTimeout(loop, TICK);
+        startLoop();   // erster Griff/Klick startet den Loop (kein Idle-Loop davor)
       }
 
       var activePointer = null;
@@ -229,16 +313,11 @@
         }
         listeners = [];
       }
-      // Sofortiger Abbruch, auch wenn loop() nie lief (z. B. Überspringen vor
-      // dem ersten Griff) -> keine hängenden Listener, Promise sauber aufgelöst.
+      // Sofortiger Abbruch (Skip/Dispose) — auch während der Abschlusspause,
+      // auch wenn loop() nie lief. Alles Aufräumen passiert in settle().
       function abort() {
-        if (done) return;
-        done = true;
-        if (timer) clearTimeout(timer);
-        if (startHideTimer) clearTimeout(startHideTimer);
-        cleanup();
-        try { if (actx && actx.state !== "closed") { var pc = actx.close(); if (pc && pc.catch) pc.catch(function () {}); } } catch (e) {}
-        resolve({ breaths: breaths, aborted: true });
+        if (settled) return;
+        settle({ breaths: breaths, aborted: true });
       }
 
       function press(e) {
@@ -269,7 +348,11 @@
         holdSince = 0;   // sonst „Loslassen" zu früh bei Loslassen+Sofort-Neudruck im selben Tick
         ring.classList.remove("pressed");
       }
-      function onVis() { if (document.hidden) forceRelease(); }
+      // Tab versteckt -> Halt lösen UND Loop pausieren; zurück -> Loop weiter.
+      function onVis() {
+        if (document.hidden) { forceRelease(); stopLoop(); }
+        else if (armed && !done) { startLoop(); }
+      }
 
       on(host, "gamedispose", abort);   // playGame() feuert das vor host.remove()
       on(start, "click", arm);
@@ -287,11 +370,25 @@
         on(window, "mouseup", release);
       }
 
-      paint();
+      // Zusätzlich zum gamedispose-Event auch direktes host.remove() erkennen
+      // (der Loop läuft evtl. gar nicht / nicht mehr) -> sauber abbrechen.
+      try {
+        if (window.MutationObserver && host.parentNode) {
+          domObserver = new MutationObserver(function () {
+            if (!host.isConnected) abort();   // abort ist idempotent (settled)
+          });
+          domObserver.observe(host.parentNode, { childList: true });
+        }
+      } catch (e) { domObserver = null; }
+
+      paint();   // einmaliges Startbild (kein Loop vor der ersten Interaktion)
     });
   };
 
   // ---- Helpers ------------------------------------------------------------
+  function nowMs() {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  }
   function el(tag, cls, html) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -366,7 +463,12 @@
 
       // Abschluss-Stimmung.
       s + uid + " .atem-done .atem-ring{box-shadow:inset 0 0 0 1.5px rgba(68,136,95,.28),0 10px 26px rgba(68,136,95,.28)}",
-      s + uid + " .atem-done .atem-guide{opacity:0;transition:opacity .6s ease}"
+      s + uid + " .atem-done .atem-guide{opacity:0;transition:opacity .6s ease}",
+
+      // prefers-reduced-motion: dekorative Transitions/Animationen im Scope aus
+      // (Ring folgt weiter dem Finger — die Interaktion bleibt erhalten).
+      s + uid + " .atem-wrap.reduce,",
+      s + uid + " .atem-wrap.reduce *{transition:none!important;animation:none!important}"
     ].join("");
   }
 })();

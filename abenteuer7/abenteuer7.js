@@ -163,7 +163,22 @@ function audioPlayer(playlistTitle, playerId) {
   n.querySelectorAll(".apl-track").forEach((b) => b.onclick = () => { const t = tracks[+b.dataset.i]; au.src = t.url; au.play().catch(() => {}); n.querySelectorAll(".apl-track").forEach((x) => x.classList.remove("on")); b.classList.add("on"); });
   scroll();
 }
-function videoCard(label, vid, caption) { const p = (window.MAIA_POSTER || {})[vid]; add(`<div class="card vcard"><div class="vwrap"><img class="vlogo" src="img/hds-wordmark.svg" alt="Hairdressing.school"><video controls preload="none" playsinline${p ? ` poster="${p}"` : ""} src="${VBASE}${vid}.mp4"></video></div><div class="vmeta"><b>${label}</b>${caption ? `<span>${caption}</span>` : ""}</div></div>`); scroll(); }
+function videoCard(label, vid, caption) {
+  // Einheitliches gebrandetes Cover im Ruhezustand → das (uneinheitliche) Video-Intro ist nie sichtbar;
+  // EIN Hairdressing.school-Logo (oben links) durchgehend; Play blendet das Cover weich weg.
+  const n = add(`<div class="card vcard"><div class="vwrap"><video preload="none" playsinline controls src="${VBASE}${vid}.mp4"></video><img class="vlogo" src="img/hds-wordmark.svg" alt="Hairdressing.school"><button class="vfs" type="button" aria-label="Vollbild"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-3M3 16v3a2 2 0 002 2h3"/></svg></button><button class="vcover" type="button" aria-label="Video abspielen"><span class="vcover-play"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></span></button></div><div class="vmeta"><b>${esc(label)}</b>${caption ? `<span>${esc(caption)}</span>` : ""}</div></div>`);
+  const v = n.querySelector("video"), fs = n.querySelector(".vfs"), wrap = n.querySelector(".vwrap"), cover = n.querySelector(".vcover");
+  if (cover && v) cover.addEventListener("click", () => { n.classList.add("playing"); cover.classList.add("hidden"); try { v.play(); } catch (e) {} });
+  if (fs && v) fs.addEventListener("click", () => {
+    try {
+      if (v.requestFullscreen) v.requestFullscreen();
+      else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();      // iOS Safari: nativer Player mit „Fertig" zum Zurückgehen
+      else if (v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+      else if (wrap && wrap.requestFullscreen) wrap.requestFullscreen();
+    } catch (e) {}
+  });
+  scroll();
+}
 async function videoStep(label, vid, caption) { videoCard(label, vid, caption); await sleep(360); }
 function badge(title, sub) { add(`<div class="badge"><div class="medal"><img src="img/maia-heart.svg" alt="Maia"></div><b>${title}</b><span>${sub}</span></div>`); }
 
