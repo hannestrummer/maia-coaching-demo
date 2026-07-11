@@ -7,6 +7,18 @@
       <stop offset="100%" stop-color="#efb6c9"/>
     </radialGradient>
   </defs>
+  <style>
+    .sparkle { transform-box: fill-box; transform-origin: center; animation: twinkle 2.5s ease-in-out infinite; }
+    .sparkle-2 { animation-delay: 0.8s; }
+    .sparkle-3 { animation-delay: 1.6s; }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.5; transform: scale(0.9); }
+      50%      { opacity: 1;   transform: scale(1.1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
   <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
   <!-- body -->
@@ -27,9 +39,9 @@
   <path d="M188 158 Q184 128 172 114" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
   <circle cx="170" cy="112" r="9" fill="#C3EBD8"/>
   <!-- sparkles -->
-  <path d="M235 35 L239 42 L246 46 L239 50 L235 57 L231 50 L224 46 L231 42 Z" fill="#c4566f"/>
-  <path d="M272 67 L274.5 71.5 L279 74 L274.5 76.5 L272 81 L269.5 76.5 L265 74 L269.5 71.5 Z" fill="#44885f"/>
-  <path d="M246 93 L247.8 96.2 L251 98 L247.8 99.8 L246 103 L244.2 99.8 L241 98 L244.2 96.2 Z" fill="#c4566f"/>
+  <path class="sparkle sparkle-1" d="M235 35 L239 42 L246 46 L239 50 L235 57 L231 50 L224 46 L231 42 Z" fill="#c4566f"/>
+  <path class="sparkle sparkle-2" d="M272 67 L274.5 71.5 L279 74 L274.5 76.5 L272 81 L269.5 76.5 L265 74 L269.5 71.5 Z" fill="#44885f"/>
+  <path class="sparkle sparkle-3" d="M246 93 L247.8 96.2 L251 98 L247.8 99.8 L246 103 L244.2 99.8 L241 98 L244.2 96.2 Z" fill="#c4566f"/>
   <!-- thought dots -->
   <circle cx="206" cy="52" r="5" fill="#44885f"/>
   <circle cx="216" cy="42" r="3" fill="#44885f"/>

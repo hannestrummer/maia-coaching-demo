@@ -7,6 +7,21 @@
       <stop offset="100%" stop-color="#efb6c9"/>
     </radialGradient>
   </defs>
+  <style>
+    .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.5s ease-in-out infinite; }
+    @keyframes blink {
+      0%, 93%, 97%, 100% { transform: scaleY(1); }
+      95%                { transform: scaleY(0.1); }
+    }
+    .wave { transform-box: fill-box; transform-origin: center bottom; animation: handwave 2s ease-in-out infinite; }
+    @keyframes handwave {
+      0%, 100% { transform: rotate(-4deg); }
+      50%      { transform: rotate(4deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
   <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
   <!-- faint mentor silhouette (mirroring) -->
@@ -21,15 +36,17 @@
   <path d="M90 152 Q82 190 92 200" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
   <circle cx="92" cy="200" r="8" fill="#C3EBD8"/>
   <!-- right arm raised, mirroring the mentor -->
-  <path d="M162 152 Q180 122 188 98" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
-  <circle cx="190" cy="96" r="8" fill="#C3EBD8"/>
+  <g class="wave">
+    <path d="M162 152 Q180 122 188 98" fill="none" stroke="#C3EBD8" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="190" cy="96" r="8" fill="#C3EBD8"/>
+  </g>
   <!-- head (fixed Maia face) -->
   <g transform="translate(59.44 23.44) scale(0.26)">
     <circle cx="256" cy="256" r="150" fill="url(#faceGradient)"/>
     <path d="M168 172c16-12 35-14 52-5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
     <path d="M292 166c17-10 37-7 52 5" fill="none" stroke="#b05b79" stroke-linecap="round" stroke-width="14"/>
-    <circle cx="190" cy="221" r="19" fill="#1f1f22"/>
-    <circle cx="322" cy="221" r="19" fill="#1f1f22"/>
+    <circle class="eye" cx="190" cy="221" r="19" fill="#1f1f22"/>
+    <circle class="eye" cx="322" cy="221" r="19" fill="#1f1f22"/>
     <path d="M216 310c22 14 56 14 80 0" fill="none" stroke="#1f1f22" stroke-linecap="round" stroke-width="18"/>
   </g>
 </svg>

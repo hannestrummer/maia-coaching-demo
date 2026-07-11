@@ -7,6 +7,18 @@
       <stop offset="100%" stop-color="#efb6c9"/>
     </radialGradient>
   </defs>
+  <style>
+    .swave { transform-box: fill-box; transform-origin: left center; animation: sonar 2s ease-in-out infinite; }
+    .swave-2 { animation-delay: 0.3s; }
+    .swave-3 { animation-delay: 0.6s; }
+    @keyframes sonar {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50%      { opacity: 1;   transform: scale(1.05); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; }
+    }
+  </style>
   <rect x="0" y="0" width="320" height="220" rx="26" fill="#e8f6f0"/>
   <path d="M210 55 C210 25 252 14 278 30 C302 45 306 76 286 93 C262 113 220 101 212 79 C208 69 208 62 210 55 Z" fill="#fdf0f3"/>
   <!-- body -->
@@ -32,7 +44,7 @@
   <circle cx="112" cy="94" r="7" fill="#44885f"/>
   <circle cx="192" cy="94" r="7" fill="#44885f"/>
   <!-- soft sound wave -->
-  <path d="M206 82 Q214 94 206 106" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round"/>
-  <path d="M213 76 Q225 94 213 112" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-  <path d="M220 70 Q236 94 220 118" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
+  <path class="swave swave-1" d="M206 82 Q214 94 206 106" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round"/>
+  <path class="swave swave-2" d="M213 76 Q225 94 213 112" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+  <path class="swave swave-3" d="M220 70 Q236 94 220 118" fill="none" stroke="#44885f" stroke-width="3" stroke-linecap="round" opacity="0.45"/>
 </svg>
